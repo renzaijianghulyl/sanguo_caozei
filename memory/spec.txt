@@ -36,6 +36,7 @@
   - Git仓库：https://github.com/renzaijianghulyl/demo.git（账号：renzaijianghulyl，密码：wojiushiwoLee4）
   - 本地目录：`/Users/liyulong/Desktop/caozei`（Mac密码：1qaz@WSX）
   - 每完成一次迭代自动提交代码并同步到本地环境
+  - 网络连接验证：每次同步前测试GitHub可达性，确保token认证有效，同步失败时有本地备份机制
 
 ## 3. 执行路线图
 ### 第一阶段：初始化与环境搭建
@@ -50,20 +51,21 @@
 - [x] 完成本地存档读写机制
 - [x] 在微信开发者工具中验证运行闭环
 
-### 第三阶段：核心系统扩展
-- [ ] 完善事件模板引擎（支持主线/支线/随机事件）
-- [ ] 扩展NPC关系与势力系统
-- [ ] 增强合规过滤与安全拦截
-- [ ] 实现事件去重与冷却机制
+### 第三阶段：核心系统扩展（已完成）
+- [x] 完善事件模板引擎（支持主线/支线/随机事件）
+- [x] 扩展NPC关系与势力系统
+- [x] 增强合规过滤与安全拦截
+- [x] 实现事件去重与冷却机制
 
 ### 第四阶段：内容成型与稳定
-- [ ] 批量生成15-25个事件模板（符合EVENT_SPEC）
-- [ ] 配置6-10个核心NPC
-- [ ] 优化性能与包体大小（确保≤4MB）
-- [ ] 建立监控埋点（错误率、裁决分级分布）
+- [x] 批量生成15-25个事件模板（符合EVENT_SPEC）
+- [x] 配置6-10个核心NPC
+- [x] 优化性能与包体大小（确保≤4MB）
+- [x] 建立监控埋点（错误率、裁决分级分布）
 
 ### 第五阶段：上线准备
-- [ ] 灰度测试与反馈收集
+- [x] 灰度测试准备（测试包构建、问卷设计、模拟反馈）
+- [ ] 灰度测试执行（部署到体验版、收集真实用户反馈）
 - [ ] 最终合规审核
 - [ ] 包体优化与资源压缩
 - [ ] 文档整理与交付
@@ -75,23 +77,36 @@
 ### 表结构（DDL）
 ```sql
 CREATE TABLE IF NOT EXISTS event_log (
-  event_id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL,
   player_id TEXT NOT NULL,
   triggered_at TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id, player_id)
 );
 
 CREATE TABLE IF NOT EXISTS player_progress (
   player_id TEXT PRIMARY KEY,
   last_save_time TEXT NOT NULL,
   world_state_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS event_cooldown (
+  event_id TEXT NOT NULL,
+  player_id TEXT NOT NULL,
+  last_triggered_at TEXT NOT NULL,
+  cooldown_remaining INTEGER NOT NULL DEFAULT 0,
+  triggered_count INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id, player_id)
 );
 ```
 
 ### 去重口径
 - 事件去重：基于 `event_id` + `player_id` 唯一约束
 - 存档去重：基于 `player_id` 唯一约束
+- 冷却机制：基于 `event_cooldown` 表，支持玩家特定冷却
 
 ### 幂等写入语义
 使用 `INSERT OR IGNORE` 保证重复执行不产生重复记录。

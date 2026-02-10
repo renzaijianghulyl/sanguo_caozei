@@ -11,9 +11,10 @@ class DeepSeekAdapter {
         }
         this.apiKey = apiKey;
         this.baseURL = baseURL;
+        
+        // 创建基础client，超时将在每次请求时动态设置
         this.client = axios.create({
             baseURL: this.baseURL,
-            timeout: 30000,
             headers: {
                 'Authorization': `Bearer ${this.apiKey}`,
                 'Content-Type': 'application/json'
@@ -23,6 +24,82 @@ class DeepSeekAdapter {
         // 重试配置
         this.maxRetries = 2;
         this.retryDelay = 1000; // 1秒
+        // 超时配置：根据意图复杂度动态调整（优化后）
+        this.timeoutConfig = {
+            simple: 5000,     // 简单意图：5秒
+            moderate: 8000,   // 中等意图：8秒
+            complex: 12000    // 复杂意图：12秒（分步处理）
+        };
+    }
+
+    /**
+     * 评估意图复杂度
+     * @param {Object} context - 裁决上下文
+     * @returns {string} 'simple' | 'moderate' | 'complex'
+     */
+    _assessIntentComplexity(context) {
+        const { player_intent = '', event_context, npc_state = [] } = context;
+        
+        // 基于意图长度
+        const intentLength = player_intent.length;
+        
+        // 基于关键词：全局影响的关键词
+        const globalKeywords = ['造反', '称帝', '联合诸侯', '起义', '叛乱', '篡位'];
+        const branchKeywords = ['结交', '招募', '结盟', '背叛', '投靠'];
+        
+        const hasGlobalKeyword = globalKeywords.some(keyword => 
+            player_intent.includes(keyword)
+        );
+        const hasBranchKeyword = branchKeywords.some(keyword => 
+            player_intent.includes(keyword)
+        );
+        
+        // 基于NPC数量
+        const npcCount = npc_state.length;
+        
+        // 评估逻辑
+        if (hasGlobalKeyword || intentLength > 150) {
+            return 'complex';
+        } else if (hasBranchKeyword || npcCount > 3 || intentLength > 80) {
+            return 'moderate';
+        } else {
+            return 'simple';
+        }
+    }
+
+    /**
+     * 判断是否应该重试请求
+     * @param {Error} error - 错误对象
+     * @param {number} retryCount - 当前重试次数
+     * @returns {boolean} 是否应该重试
+     */
+    _shouldRetryRequest(error, retryCount) {
+        if (retryCount >= this.maxRetries) {
+            return false;
+        }
+
+        // 超时错误应该重试
+        if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+            console.log(`[DeepSeek] 超时错误，将重试: ${error.code}`);
+            return true;
+        }
+
+        // API服务器错误（5xx）应该重试
+        if (error.response && error.response.status >= 500) {
+            console.log(`[DeepSeek] API服务器错误 ${error.response.status}，将重试`);
+            return true;
+        }
+
+        // 网络错误应该重试
+        if (error.code === 'ENETUNREACH' || error.code === 'ECONNRESET' || 
+            error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
+            console.log(`[DeepSeek] 网络错误 ${error.code}，将重试`);
+            return true;
+        }
+
+        // 其他错误不重试
+        console.log(`[DeepSeek] 错误类型 ${error.code || 'unknown'}，不重试`);
+        return false;
     }
 
     /**
@@ -115,7 +192,11 @@ ${event_context ?
         try {
             const prompt = this.buildAdjudicationPrompt(context);
             
-            console.log(`[DeepSeek] 调用LLM裁决，重试次数: ${retryCount}`);
+            // 评估意图复杂度并设置超时
+            const complexity = this._assessIntentComplexity(context);
+            const timeoutMs = this.timeoutConfig[complexity] || this.timeoutConfig.simple;
+            
+            console.log(`[DeepSeek] 调用LLM裁决，重试次数: ${retryCount}, 复杂度: ${complexity}, 超时: ${timeoutMs}ms`);
             
             const response = await this.client.post('/chat/completions', {
                 model: 'deepseek-chat',
@@ -132,6 +213,8 @@ ${event_context ?
                 temperature: 0.7,
                 max_tokens: 2000,
                 response_format: { type: 'json_object' }
+            }, {
+                timeout: timeoutMs  // 设置动态超时
             });
 
             const content = response.data.choices[0].message.content;
@@ -170,16 +253,21 @@ ${event_context ?
         } catch (error) {
             console.error('[DeepSeek] 裁决失败:', error.message);
             
-            // 网络错误或API错误，尝试重试
-            if (retryCount < this.maxRetries && 
-                (error.response?.status >= 500 || error.code === 'ECONNABORTED')) {
-                console.log(`[DeepSeek] 重试裁决 (${retryCount + 1}/${this.maxRetries})`);
-                await this.delay(this.retryDelay * (retryCount + 1));
-                return this.adjudicate(context, retryCount + 1);
+            // 错误分类与重试决策
+            const shouldRetry = this._shouldRetryRequest(error, retryCount);
+            
+            if (shouldRetry) {
+                const nextRetryCount = retryCount + 1;
+                console.log(`[DeepSeek] 重试裁决 (${nextRetryCount}/${this.maxRetries})，错误类型: ${error.code || 'api_error'}`);
+                await this.delay(this.retryDelay * nextRetryCount);
+                return this.adjudicate(context, nextRetryCount);
             }
             
-            // 最终失败，抛出错误
-            throw error;
+            // 最终失败，抛出友好的错误信息
+            const userFriendlyError = new Error(`网络波动，请稍后重试 (技术细节: ${error.message})`);
+            userFriendlyError.code = error.code;
+            userFriendlyError.originalError = error;
+            throw userFriendlyError;
         }
     }
 

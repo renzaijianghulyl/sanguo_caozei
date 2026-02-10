@@ -300,8 +300,10 @@ function submitInput() {
         }
         handleAdjudicationResult(res.data);
       } else {
-        // 错误处理
-        dialogueHistory.push('裁决服务暂时不可用，请稍后重试。');
+        // 错误处理 - 显示友好提示并提供重试建议
+        const errorMsg = res.data && res.data.message ? 
+          res.data.message : '网络波动，请稍后重试';
+        dialogueHistory.push(`${errorMsg} (点击输入框重试)`);
         render();
       }
     },
@@ -309,10 +311,11 @@ function submitInput() {
       console.error('裁决API调用失败:', err);
       // 移除等待提示
       if (dialogueHistory[dialogueHistory.length - 1] === '（等待裁决结果...）') {
-        dialogueHistory.pop();
+        dialogueogueHistory.pop();
       }
-      // 使用模拟裁决作为兜底
-      dialogueHistory.push('（网络连接失败，使用模拟裁决）');
+      // 显示友好错误提示并提供重试建议
+      dialogueHistory.push('网络波动，请稍后重试 (点击输入框重试)');
+      // 仍然使用模拟裁决作为兜底，但用户可以选择重试
       simulateAdjudication(intentText);
     }
   });

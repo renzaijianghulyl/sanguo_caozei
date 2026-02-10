@@ -6,16 +6,21 @@
   "scripts": {
     "start": "node src/server/index.js",
     "dev": "nodemon src/server/index.js",
-    "test": "node src/server/test.js"
+    "test": "node src/server/test.js",
+    "sync": "./scripts/sync_to_local.sh",
+    "build:client": "node scripts/build_client.js",
+    "minify": "terser src/client/*.js -c -m -o dist/client.min.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "axios": "^1.6.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "axios": "^1.6.0"
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "terser": "^5.46.0"
   },
   "engines": {
     "node": ">=16.0.0"
