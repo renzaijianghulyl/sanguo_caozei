@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     alias: {
+      "@app": resolvePath("app"),
       "@core": resolvePath("core"),
       "@services": resolvePath("services"),
       "@ui": resolvePath("ui"),

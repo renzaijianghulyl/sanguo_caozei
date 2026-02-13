@@ -1,162 +1,159 @@
-type FrameRequestCallback = (time: number) => void;
-type KeyboardInputHandler = (res: { value: string }) => void;
-type KeyboardConfirmHandler = () => void;
-type KeyboardCompleteHandler = () => void;
-type TouchHandler = (event: { touches?: Array<{ x: number; y: number }> }) => void;
-
-export type CanvasSurface = WechatMiniprogram.OffscreenCanvas | HTMLCanvasElement;
+export type CanvasSurface = WechatMiniprogram.OffscreenCanvas;
 
 export interface SystemInfo {
   windowWidth: number;
   windowHeight: number;
   pixelRatio: number;
+  /** 状态栏高度，刘海屏设备用于顶部留白 */
+  statusBarHeight: number;
+  /** 安全区域顶部偏移（刘海/异形屏），无则取 statusBarHeight */
+  safeAreaTop: number;
 }
 
-function getWx(): any {
-  return hasWx() ? (wx as any) : null;
-}
+type TouchEventShape = {
+  touches?: Array<{ clientX?: number; clientY?: number; x?: number; y?: number }>;
+  changedTouches?: Array<{ clientX?: number; clientY?: number; x?: number; y?: number }>;
+};
+type TouchHandler = (event: TouchEventShape) => void;
+type KeyboardInputHandler = (res: { value: string }) => void;
+type KeyboardConfirmHandler = () => void;
+type KeyboardCompleteHandler = () => void;
+type FrameRequestCallback = (time: number) => void;
 
 export function hasWx(): boolean {
   return typeof wx !== "undefined";
 }
 
+function getWx(): WechatMiniprogram.Wx {
+  return wx;
+}
+
 export function getSystemInfo(): SystemInfo {
-  const wxApi = getWx();
-  if (wxApi && typeof wxApi.getSystemInfoSync === "function") {
-    const info = wxApi.getSystemInfoSync();
-    return {
-      windowWidth: info.windowWidth || 375,
-      windowHeight: info.windowHeight || 667,
-      pixelRatio: info.pixelRatio || 2
-    };
-  }
-  const win = typeof window !== "undefined" ? window : undefined;
+  const info = getWx().getSystemInfoSync() as {
+    windowWidth?: number;
+    windowHeight?: number;
+    pixelRatio?: number;
+    statusBarHeight?: number;
+    safeArea?: { top?: number };
+  };
+  const statusBar = info.statusBarHeight ?? 0;
+  const safeTop = info.safeArea?.top ?? statusBar;
   return {
-    windowWidth: win?.innerWidth || 375,
-    windowHeight: win?.innerHeight || 667,
-    pixelRatio: win?.devicePixelRatio || 2
+    windowWidth: info.windowWidth || 375,
+    windowHeight: info.windowHeight || 667,
+    pixelRatio: info.pixelRatio || 2,
+    statusBarHeight: statusBar,
+    safeAreaTop: Math.max(statusBar, safeTop, 0)
   };
 }
 
 export function createCanvas(): CanvasSurface | null {
-  const wxApi = getWx();
-  const systemInfo = getSystemInfo();
-  const width = systemInfo.windowWidth * systemInfo.pixelRatio;
-  const height = systemInfo.windowHeight * systemInfo.pixelRatio;
-
-  if (wxApi && typeof wxApi.createCanvas === "function") {
-    const canvas = wxApi.createCanvas();
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
+  if (!hasWx() || typeof wx.createCanvas !== "function") {
+    return null;
   }
-
-  if (typeof document !== "undefined" && typeof document.createElement === "function") {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-  }
-
-  console.warn("wx.createCanvas 不可用，返回 null。");
-  return null;
+  const info = getSystemInfo();
+  const canvas = wx.createCanvas();
+  canvas.width = info.windowWidth * info.pixelRatio;
+  canvas.height = info.windowHeight * info.pixelRatio;
+  return canvas;
 }
 
 export function onTouchStart(handler: TouchHandler): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.onTouchStart !== "function") {
+  if (!hasWx()) return;
+  const fn = (wx as { onTouchStart?: (h: TouchHandler) => void }).onTouchStart;
+  if (typeof fn !== "function") {
+    console.warn("[wxHelpers] wx.onTouchStart 不可用，触摸将无法响应");
     return;
   }
-  wxApi.onTouchStart(handler as any);
+  fn.call(wx, handler as any);
+}
+
+export function onTouchMove(handler: TouchHandler): void {
+  if (!hasWx()) return;
+  const fn = (wx as { onTouchMove?: (h: TouchHandler) => void }).onTouchMove;
+  if (typeof fn === "function") fn.call(wx, handler as any);
+}
+
+export function onTouchEnd(handler: TouchHandler): void {
+  if (!hasWx()) return;
+  const fn = (wx as { onTouchEnd?: (h: TouchHandler) => void }).onTouchEnd;
+  if (typeof fn === "function") fn.call(wx, handler as any);
 }
 
 export function onKeyboardInput(handler: KeyboardInputHandler): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.onKeyboardInput !== "function") {
-    return;
-  }
-  wxApi.onKeyboardInput(handler as any);
+  if (!hasWx() || typeof wx.onKeyboardInput !== "function") return;
+  wx.onKeyboardInput(handler as any);
 }
 
 export function onKeyboardConfirm(handler: KeyboardConfirmHandler): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.onKeyboardConfirm !== "function") {
-    return;
-  }
-  wxApi.onKeyboardConfirm(handler as any);
+  if (!hasWx() || typeof wx.onKeyboardConfirm !== "function") return;
+  wx.onKeyboardConfirm(handler as any);
 }
 
 export function onKeyboardComplete(handler: KeyboardCompleteHandler): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.onKeyboardComplete !== "function") {
-    return;
-  }
-  wxApi.onKeyboardComplete(handler as any);
+  if (!hasWx() || typeof wx.onKeyboardComplete !== "function") return;
+  wx.onKeyboardComplete(handler as any);
 }
 
 export function showKeyboard(defaultValue: string, maxLength = 100): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.showKeyboard !== "function") {
-    console.warn("wx.showKeyboard 不可用。");
-    return;
+  if (!hasWx() || typeof wx.showKeyboard !== "function") return;
+  try {
+    const info = wx.getSystemInfoSync();
+    const platform = String(info?.platform || "").toLowerCase();
+    if (platform === "devtools" || platform === "mac" || platform === "windows") return;
+    wx.showKeyboard({
+      defaultValue: defaultValue || "",
+      maxLength: Math.max(1, Math.min(maxLength, 200)),
+      multiple: false,
+      confirmHold: false,
+      confirmType: "done"
+    });
+  } catch {
+    try {
+      wx.hideKeyboard({});
+    } catch {
+      /* ignore */
+    }
   }
-  wxApi.showKeyboard({
-    defaultValue,
-    maxLength,
-    multiple: false,
-    confirmHold: false,
-    confirmType: "send"
-  });
 }
 
 export function hideKeyboard(): void {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.hideKeyboard !== "function") {
-    return;
-  }
-  wxApi.hideKeyboard({});
-}
-
-export function request<T>({
-  url,
-  data,
-  method = "POST",
-  timeout = 15_000,
-  header = { "Content-Type": "application/json" }
-}: {
-  url: string;
-  data?: unknown;
-  method?: WechatMiniprogram.RequestOption["method"];
-  timeout?: number;
-  header?: Record<string, string>;
-}): Promise<{ statusCode: number; data: T }> {
-  const wxApi = getWx();
-  if (!wxApi || typeof wxApi.request !== "function") {
-    return Promise.reject(new Error("wx.request 不可用，无法发起网络请求"));
-  }
-
-  return new Promise((resolve, reject) => {
-    wxApi.request({
-      url,
-      data: data as WechatMiniprogram.IAnyObject,
-      method,
-      timeout,
-      header,
-      enableChunked: true,
-      success(res: { statusCode: number; data: T }) {
-        resolve({ statusCode: res.statusCode, data: res.data });
-      },
-      fail(error: unknown) {
-        reject(error);
-      }
-    });
-  });
+  if (!hasWx() || typeof wx.hideKeyboard !== "function") return;
+  wx.hideKeyboard({});
 }
 
 export function nextFrame(callback: FrameRequestCallback): void {
-  if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(callback);
+  if (typeof wx !== "undefined" && typeof (wx as any).requestAnimationFrame === "function") {
+    (wx as any).requestAnimationFrame(callback);
     return;
   }
   setTimeout(() => callback(Date.now()), 16);
+}
+
+export function request<T>(opts: {
+  url: string;
+  data?: unknown;
+  method?: WechatMiniprogram.RequestOption["method"];
+  header?: Record<string, string>;
+  timeout?: number;
+}): Promise<{ statusCode: number; data: T }> {
+  if (!hasWx() || typeof wx.request !== "function") {
+    return Promise.reject(new Error("wx.request 不可用"));
+  }
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: opts.url,
+      data: opts.data as WechatMiniprogram.IAnyObject,
+      method: opts.method || "POST",
+      header: opts.header || { "Content-Type": "application/json" },
+      timeout: opts.timeout ?? 15000,
+      enableChunked: true,
+      success(res) {
+        resolve({ statusCode: res.statusCode, data: res.data as T });
+      },
+      fail(err) {
+        reject(err instanceof Error ? err : new Error("wx.request 调用失败"));
+      }
+    });
+  });
 }

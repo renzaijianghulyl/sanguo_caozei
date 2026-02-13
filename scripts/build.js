@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const esbuild = require("esbuild");
 const fs = require("fs");
 const path = require("path");
@@ -24,12 +22,23 @@ const outputNames = {
 };
 
 const supportFiles = ["game.json", "project.config.json", "project.private.config.json"];
+const entryStubs = [
+  {
+    file: "game.js",
+    content: 'require("./game.min.js");\n'
+  }
+];
 
 const define = {
   "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || (watchMode ? "development" : "production")),
+  "process.env.CLOUD_ENV": JSON.stringify(process.env.CLOUD_ENV || "cloud1-3gfb9ep2701c4857"),
   "process.env.ADJUDICATION_API": JSON.stringify(
     process.env.ADJUDICATION_API || "http://localhost:3000/intent/resolve"
-  )
+  ),
+  "process.env.DEBUG_TOUCH": JSON.stringify(
+    process.env.DEBUG_TOUCH === "1" || process.env.DEBUG_TOUCH === "true" ? "true" : "false"
+  ),
+  "process.env.AD_UNIT_ID": JSON.stringify(process.env.AD_UNIT_ID || "adunit-1234567890abcdef")
 };
 
 function ensureDir(dirPath) {
@@ -59,6 +68,13 @@ function copyArtifacts() {
     if (fs.existsSync(source)) {
       copyFileSafe(source, path.join(distDir, fileName));
     }
+  });
+
+  entryStubs.forEach(({ file, content }) => {
+    const rootTarget = path.join(projectRoot, file);
+    const distTarget = path.join(distDir, file);
+    fs.writeFileSync(rootTarget, content, "utf-8");
+    copyFileSafe(rootTarget, distTarget);
   });
 }
 

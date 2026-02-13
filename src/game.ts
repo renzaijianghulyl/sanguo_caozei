@@ -1,20 +1,15 @@
-import {
-  gameLoop,
-  handleTouch,
-  initGame,
-  manualSave,
-  render,
-  setCurrentInput,
-  showKeyboard,
-  submitInput,
-  toggleSaveLoadPanel
-} from "./app";
+/**
+ * 微信小游戏入口：仅负责生命周期与 bootstrap，业务逻辑在 app/gameApp
+ */
+import { gameLoop, initGame, onAppHide } from "./app";
+import { ClientConfig } from "./config";
 
-let initialized = false;
+let bootstrapped = false;
 
-function bootstrap() {
-  if (initialized) {
-    return;
+function bootstrap(): void {
+  if (bootstrapped) return;
+  if (typeof wx !== "undefined" && (wx as { cloud?: { init?: (opts: { env: string }) => void } }).cloud?.init && ClientConfig.CLOUD_ENV) {
+    (wx as { cloud: { init: (opts: { env: string }) => void } }).cloud.init({ env: ClientConfig.CLOUD_ENV });
   }
   const result = initGame();
   if (!result.ready) {
@@ -22,39 +17,15 @@ function bootstrap() {
     return;
   }
   gameLoop();
-  initialized = true;
-  console.log("小游戏入口初始化完成（占位实现）");
+  bootstrapped = true;
 }
 
-const wxApi: any = typeof wx !== "undefined" ? wx : null;
-
-if (wxApi && typeof wxApi.onShow === "function") {
-  wxApi.onShow(() => {
-    bootstrap();
+if (typeof wx !== "undefined" && typeof wx.onShow === "function") {
+  wx.onShow(bootstrap);
+  wx.onHide(() => {
+    onAppHide();
   });
-
-  wxApi.onHide(() => {
-    console.log("游戏进入后台");
+  wx.onError((err: unknown) => {
+    console.error("游戏错误:", err);
   });
-
-  wxApi.onError((error: unknown) => {
-    console.error("游戏错误:", error);
-  });
-} else {
-  console.warn("wx 全局对象不可用，使用本地调试模式自动启动。");
-  bootstrap();
 }
-
-export const game = {
-  initGame,
-  gameLoop,
-  handleTouch,
-  showKeyboard,
-  submitInput,
-  manualSave,
-  toggleSaveLoadPanel,
-  render,
-  setCurrentInput
-};
-
-export type GameExports = typeof game;

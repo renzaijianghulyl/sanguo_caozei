@@ -1,0 +1,7 @@
+{
+  "name": "adjudication",
+  "version": "1.0.0",
+  "description": "三国文字冒险 裁决云函数",
+  "main": "index.js",
+  "dependencies": {}
+}

@@ -1,18 +1,70 @@
-import { ClientConfig, DEFAULT_NPC_STATE, DEFAULT_PLAYER_STATE, DEFAULT_WORLD_STATE } from "@config/index";
+import { ClientConfig, DEFAULT_NPC_STATE, DEFAULT_PLAYER_STATE, DEFAULT_WORLD_STATE, INITIAL_DIALOGUE } from "@config/index";
 import type { GameSaveData, NPCState, PlayerState, WorldState } from "@core/state";
 
 const SAVE_VERSION = "1.0.0";
-const STORAGE_KEY_PREFIX = "sanguo_save_";
 
 type StorageLike = {
   setItem(key: string, value: string): void;
   getItem(key: string): string | undefined;
   removeItem(key: string): void;
   getAllKeys(): string[];
+  getSizeBytes(): number;
 };
+
+function createStorage(): StorageLike {
+  if (typeof wx !== "undefined" && typeof wx.setStorageSync === "function") {
+    return {
+      setItem(k, v) {
+        wx.setStorageSync(k, v);
+      },
+      getItem(k) {
+        const v = wx.getStorageSync(k);
+        return v === "" ? undefined : v;
+      },
+      removeItem(k) {
+        wx.removeStorageSync(k);
+      },
+      getAllKeys() {
+        return wx.getStorageInfoSync().keys;
+      },
+      getSizeBytes() {
+        return wx.getStorageInfoSync().currentSize * 1024;
+      }
+    };
+  }
+  const mem = new Map<string, string>();
+  return {
+    setItem(k, v) {
+      mem.set(k, v);
+    },
+    getItem(k) {
+      return mem.get(k);
+    },
+    removeItem(k) {
+      mem.delete(k);
+    },
+    getAllKeys() {
+      return Array.from(mem.keys());
+    },
+    getSizeBytes() {
+      return Array.from(mem.values()).reduce((s, v) => s + v.length, 0);
+    }
+  };
+}
+const STORAGE_KEY_PREFIX = "sanguo_save_";
 
 function cloneDeep<T>(payload: T): T {
   return JSON.parse(JSON.stringify(payload));
+}
+
+function calculatePayloadSize(serialized: string): number {
+  if (typeof Blob !== "undefined") {
+    return new Blob([serialized]).size;
+  }
+  if (typeof TextEncoder !== "undefined") {
+    return new TextEncoder().encode(serialized).length;
+  }
+  return serialized.length * 2;
 }
 
 function createDefaultSave(): GameSaveData {
@@ -34,11 +86,7 @@ function createDefaultSave(): GameSaveData {
     world: baseWorld,
     npcs: baseNpcs,
     eventLog: [],
-    dialogueHistory: [
-      "建宁元年（公元168年），你醒来发现自己身处洛阳城外的小村庄。",
-      "村中长者告诉你，黄巾之乱即将爆发，天下将乱。",
-      "你可以选择投靠官府，也可以暗中结交豪杰，甚至加入太平道……"
-    ],
+    dialogueHistory: [...INITIAL_DIALOGUE],
     progress: {
       totalTurns: 0,
       lastEventId: "",
@@ -47,66 +95,10 @@ function createDefaultSave(): GameSaveData {
   };
 }
 
-class WXStorage implements StorageLike {
-  private readonly useMock: boolean;
-  private mockStorage: Record<string, string> = {};
-
-  constructor() {
-    this.useMock = typeof wx === "undefined" || typeof wx.setStorageSync !== "function";
-    if (this.useMock) {
-      console.warn("微信小游戏存储 API 不可用，使用内存模拟。");
-    }
-  }
-
-  setItem(key: string, value: string): void {
-    if (this.useMock) {
-      this.mockStorage[key] = value;
-      return;
-    }
-    wx.setStorageSync(key, value);
-  }
-
-  getItem(key: string): string | undefined {
-    if (this.useMock) {
-      return this.mockStorage[key];
-    }
-    const data = wx.getStorageSync(key);
-    return data === "" ? undefined : data;
-  }
-
-  removeItem(key: string): void {
-    if (this.useMock) {
-      delete this.mockStorage[key];
-      return;
-    }
-    wx.removeStorageSync(key);
-  }
-
-  getAllKeys(): string[] {
-    if (this.useMock) {
-      return Object.keys(this.mockStorage);
-    }
-    const info = wx.getStorageInfoSync();
-    return info.keys;
-  }
-
-  getStorageSizeBytes(): number {
-    if (this.useMock) {
-      return Object.values(this.mockStorage).reduce((sum, value) => sum + value.length, 0);
-    }
-    const info = wx.getStorageInfoSync();
-    return info.currentSize * 1024;
-  }
-
-  isMock(): boolean {
-    return this.useMock;
-  }
-}
-
 export class SaveManager {
   private currentSlot = 0;
   private autoSaveEnabled = true;
-  private autoSaveInterval = 30;
+  private autoSaveInterval = 20;
   private autoSaveTimer: ReturnType<typeof setInterval> | null = null;
   private storageLimits = {
     maxSingleKeySize: 1_048_576,
@@ -116,7 +108,7 @@ export class SaveManager {
     warningThreshold: 0.8
   };
 
-  private storage = new WXStorage();
+  private storage = createStorage();
 
   init(): boolean {
     console.log("存档系统初始化");
@@ -160,7 +152,7 @@ export class SaveManager {
   private checkSaveSize(payload: GameSaveData) {
     try {
       const serialized = JSON.stringify(payload);
-      const size = new Blob([serialized]).size;
+      const size = calculatePayloadSize(serialized);
       const withinLimit = size <= this.storageLimits.maxSingleKeySize;
       return {
         size,
@@ -182,7 +174,7 @@ export class SaveManager {
 
   private checkTotalStorage() {
     try {
-      const totalUsed = this.storage.getStorageSizeBytes();
+      const totalUsed = this.storage.getSizeBytes();
       const usage = totalUsed / this.storageLimits.maxTotalSize;
       return {
         totalSize: totalUsed,
@@ -487,27 +479,15 @@ export class SaveManager {
   }
 
   getStorageInfo() {
-    if (this.storage.isMock()) {
-      return {
-        total: this.storageLimits.maxTotalSize,
-        used: 0,
-        available: this.storageLimits.maxTotalSize,
-        usagePercentage: 0
-      };
-    }
-    try {
-      const info = wx.getStorageInfoSync();
-      return {
-        total: this.storageLimits.maxTotalSize,
-        used: info.currentSize * 1024,
-        available: this.storageLimits.maxTotalSize - info.currentSize * 1024,
-        usagePercentage: info.currentSize / 10240,
-        keys: info.keys
-      };
-    } catch (error) {
-      console.error("获取存储信息失败:", error);
-      return null;
-    }
+    const used = this.storage.getSizeBytes();
+    const total = this.storageLimits.maxTotalSize;
+    return {
+      total,
+      used,
+      available: Math.max(0, total - used),
+      usagePercentage: used / total,
+      keys: this.storage.getAllKeys()
+    };
   }
 }
 

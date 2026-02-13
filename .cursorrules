@@ -1,0 +1,65 @@
+# 微信小游戏 + LLM 文字冒险游戏终极开发规则 (Ultimate Edition)
+
+## 1. 核心运行环境与约束
+- **平台限定**: 严格遵守微信小游戏运行环境。禁止使用 `window`, `document`, `localStorage`, `sessionStorage`。
+- **API 规范**: 必须使用全局 `wx` 对象（如 `wx.request`, `wx.getStorageSync`, `wx.createCanvasContext`）。
+- **禁止项**: 严禁使用 `eval()` 和 `new Function()`，避免审核无法通过。
+- **异步处理**: 优先使用 `async/await`。网络请求需考虑微信环境下的超时与不稳定性。
+
+## 2. 目录结构与模块化 (Strict Structure)
+- `/src/agents`: 存放 LLM 逻辑、System Prompts 和 API 调度器。
+- `/src/core`: 存放游戏引擎核心：状态机 (State Machine)、数值逻辑、实体注册表 (Entity Registry)。
+- `/src/ui`: 渲染层，处理 Canvas 绘制、打字机动画、UI 交互。
+- `/src/utils`: 工具类，特别是针对微信 API 的 Promise 封装。
+- `/assets`: 静态资源管理（音效、立绘路径）。
+
+## 3. LLM 驱动与剧情逻辑
+- **流式协议**: 必须通过 `wx.request` 的 `enableChunked: true` 实现流式数据处理。
+- **双轨输出**: 强制 LLM 以 JSON + Text 混合格式输出（例如：`{"logic": {"health": -10, "item_get": "key"}, "text": "你推开了门..."}`）。
+- **幻觉防御**: 所有 LLM 返回的逻辑指令（如道具名称、地图位置）必须经过 `EntityRegistry` 校验，若不存在则忽略或自动修正。
+- **状态快照**: 每次请求前需构建压缩版的 `WorldState`（包含当前属性、关键 Flag），严禁发送未经处理的全量历史记录。
+
+## 4. 文字冒险游戏专项渲染 (Typography)
+- **动态排版**: 禁止硬编码坐标。必须基于 `wx.getSystemInfoSync().windowWidth` 动态计算行宽、字号和 UI 位置，适配折叠屏与 iPad。
+- **平滑打字机**: 使用 `requestAnimationFrame` 驱动文字显示队列，支持“点击跳过动画”逻辑。
+- **分层 Canvas**: 采用离屏缓冲或分层绘制技术，确保文字滚动时背景立绘不闪烁。
+
+## 5. 游戏生命周期与持久化
+- **自动存档**: 每次 LLM 逻辑处理完成后，立即调用 `wx.setStorage` 进行静默存档。
+- **中断恢复**: 在 `App.onShow` 中增加状态自检，若玩家在 LLM 生成中途切出，需实现逻辑断点重连。
+- **内存管理**: 针对长篇剧情，必须实现“上下文滑动窗口”，及时清理不再需要的历史 Token 占用。
+
+## 6. 内容安全与合规 (Audit)
+- **安全过滤**: 所有玩家输入和 LLM 输出在显示前必须对接 `wx.msgSecCheck` 接口。
+- **提示词防护**: 在 Prompt 模板中内置安全边界，防止玩家通过注入指令绕过游戏设定。
+
+## 7. Cursor 交互指令 (Operational Hints)
+- **生成请求**: “请封装一个符合微信规范的 [功能名]，要求具备完善的 Try-Catch 错误捕获和网络超时处理。”
+- **UI 开发**: “生成 Canvas 渲染代码时，请考虑刘海屏安全区域（Safe Area）并使用相对比例布局。”
+- **调试诊断**: “如果剧情出现逻辑断层，请优先检查状态机的 Snapshot 构建过程和 JSON 解析的兼容性。”
+
+## 8. 代码风格
+- 优先使用 TypeScript。
+- 所有的 Prompt 字符串必须从业务代码中抽离，统一存放在 `src/agents/prompts.ts`。
+- 逻辑函数保持纯净，副作用操作（如写入缓存）需在专门的 Service 层处理。
+
+## 9. 个人开发者盈利与成本优化 (Profit-Driven)
+- **拦截器优先**: 生成逻辑时，优先判断用户输入是否为“基础指令”（如：存档、读档、你是谁、帮助）。这类指令直接本地返回，严禁调用 LLM API。
+- **缓存友好型请求**: 严格保持 Request JSON 的前缀一致性，确保 DeepSeek 的 Context Cache 机制生效。
+- **广告触发点预留**: 在剧情转折、体力耗尽、高级分支选择处，自动生成 `wx.createRewardedVideoAd` 的调用接口占位符。
+- **本地敏感词库**: 在调用 `wx.msgSecCheck` 之前，先进行本地简单关键词过滤，减少无效的 API 审核开销。
+
+## 10. 构建、发布与监控 (Release-readiness)
+- **一键构建**: `npm run build` 必须生成可直接导入微信开发者工具的 `dist/` 目录，同时在根目录同步生成 `*.min.js` 以便快速测试。
+- **体量限制**: 首包体积需保持在 1 MB 以内，如超出需添加资源分包或动态加载策略，并更新 `build_report.md`。
+- **质量闸门**: 发布前必须通过 `npm run test`、`npx tsc --noEmit`；若引入新平台能力，补充最小化集成测试脚本。
+- **日志与告警**: 关键 API（LLM 请求、广告、支付、敏感词审核）需写入统一日志通道，方便灰度期间定位问题。
+
+## 11. 变现与运营 (Revenue-ready)
+- **安全审核链路**: 玩家输入与 LLM 输出必须先走本地敏感词过滤，再调用 `wx.security.msgSecCheck`，不合格内容一律拦截并提示。
+- **激励广告**: 在剧情高潮、体力不足、支线结算等时机，调用 Rewarded Video 广告；需检测 `wx.createRewardedVideoAd` 是否可用并优雅降级。
+- **内购与虚拟货币**: 若后续接入 `wx.requestOrderPayment`，须抽象 Payment Service，避免业务层直接依赖支付 API。
+- **运营位预留**: 在 UI 中保留“公告/福利/活动”占位符，允许后续通过远程配置或 CMS 注入动态内容。
+
+## 12. 微信小游戏单端
+- **平台**: 仅支持微信小游戏环境，使用全局 `wx` 对象及 `@/utils/wxHelpers` 封装的 Canvas、触摸、键盘、网络等能力。

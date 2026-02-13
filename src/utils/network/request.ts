@@ -26,9 +26,7 @@ export async function postJson<TResponse, TPayload = unknown>({
         data: payload,
         method: "POST",
         timeout,
-        header: {
-          "Content-Type": "application/json"
-        }
+        header: { "Content-Type": "application/json" }
       });
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
