@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "templates": [
+    {
+      "id": "sworn_brother",
+      "text": "桃园之外，与你义结金兰"
+    },
+    {
+      "id": "spouse",
+      "text": "结发为夫妻，此生与共"
+    },
+    {
+      "id": "father_son",
+      "text": "父子情深，血浓于水"
+    },
+    {
+      "id": "master_apprentice",
+      "text": "师徒一场，传承不息"
+    },
+    {
+      "id": "close_friend",
+      "text": "知己难求，与你惺惺相惜"
+    },
+    {
+      "id": "ally",
+      "text": "同盟共事，携手并进"
+    },
+    {
+      "id": "rival",
+      "text": "棋逢对手，与你势均力敌"
+    },
+    {
+      "id": "enemy",
+      "text": "仇敌相见，分外眼红"
+    },
+    {
+      "id": "first_meet",
+      "text": "初识于乱世，一见如故"
+    },
+    {
+      "id": "save_life",
+      "text": "救命之恩，没齿难忘"
+    },
+    {
+      "id": "betray",
+      "text": "遭你背弃，心中痛楚"
+    },
+    {
+      "id": "reconcile",
+      "text": "冰释前嫌，重修旧好"
+    }
+  ]
+}

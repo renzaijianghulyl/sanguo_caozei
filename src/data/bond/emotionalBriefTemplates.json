@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "templates": [
+    {
+      "id": "years_separated",
+      "pattern": "{name}：{years}年未见，{eventHint}重逢时当有物是人非之感"
+    },
+    {
+      "id": "deceased",
+      "pattern": "{name}：已故于{deathYear}年，再难相见"
+    },
+    {
+      "id": "rise_to_power",
+      "pattern": "{name}：昔日{oldStatus}，今已{newStatus}，令人感慨"
+    },
+    {
+      "id": "fallen_from_grace",
+      "pattern": "{name}：曾经{oldStatus}，如今{newStatus}，世事无常"
+    },
+    {
+      "id": "longtime_companion",
+      "pattern": "{name}：相伴{years}年，历经{eventHint}，情谊深厚"
+    }
+  ],
+  "eventHintDefault": "期间历经天下大事，"
+}

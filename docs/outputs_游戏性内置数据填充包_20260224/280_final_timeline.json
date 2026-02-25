@@ -1,0 +1,179 @@
+[
+  {
+    "event_id": 4104,
+    "year": 279,
+    "month": 11,
+    "event_name": "晋灭吴之战开始",
+    "summary": "晋武帝司马炎发兵二十余万，六路并进，大举伐吴",
+    "trigger_condition": "year == 279 AND month == 11",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2306,
+            "to_region_id": 1025
+          },
+          {
+            "npc_id": 2305,
+            "to_region_id": 1025
+          },
+          {
+            "npc_id": 2307,
+            "to_region_id": 1025
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty_change": -30,
+          "troop_count": 10000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "司马炎下诏'今调诸军，东西齐举，水陆并进，一举灭吴'",
+      "王濬楼船自益州顺江而下，旌旗蔽空",
+      "杜预出江陵，王浑出横江，六路大军齐发",
+      "东吴长江防线告急，孙皓仍沉溺酒色"
+    ]
+  },
+  {
+    "event_id": 4105,
+    "year": 280,
+    "month": 3,
+    "event_name": "王濬克武昌",
+    "summary": "王濬水军连克丹阳、西陵、荆门、夷道，直抵武昌，东吴守将投降",
+    "trigger_condition": "year == 280 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2306,
+            "to_region_id": 1053
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1053,
+          "owner_faction_id": 11,
+          "loyalty": 50,
+          "troop_count": 20000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "王濬用火烧断吴军横江铁锁，破除江中暗桩",
+      "武昌守将见大势已去，开城投降此事影响深远，各地局势为之变化。",
+      "长江上游尽归晋有，建业门户洞开",
+      "孙皓急调最后精锐防守建业此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4106,
+    "year": 280,
+    "month": 3,
+    "event_name": "张悌沈莹战死",
+    "summary": "东吴丞相张悌率军迎战晋军，与沈莹等将领力战而亡，吴军最后主力覆灭",
+    "trigger_condition": "year == 280 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2329,
+          2330
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty_change": -40,
+          "troop_count": -30000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "张悌曰'吴之将亡，贤愚共知，今若渡江，不能复战，君臣俱降，无复一人死难者，不亦辱乎'",
+      "沈莹率丹阳精兵突围，力战而死此事影响深远，各地局势为之变化。",
+      "吴军最后精锐在板桥一战尽殁此事影响深远，各地局势为之变化。",
+      "建业城内人心惶惶，逃亡者众此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4107,
+    "year": 280,
+    "month": 3,
+    "event_name": "孙皓投降",
+    "summary": "王濬水军抵建业，孙皓面缚舆榇，率文武百官出降，东吴灭亡",
+    "trigger_condition": "year == 280 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2311,
+            "to_region_id": 1001
+          },
+          {
+            "npc_id": 2332,
+            "to_region_id": 1001
+          },
+          {
+            "npc_id": 2335,
+            "to_region_id": 1001
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "owner_faction_id": 11,
+          "loyalty": 45,
+          "troop_count": 15000
+        },
+        {
+          "region_id": 1053,
+          "loyalty_change": 20
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "孙皓仿效刘禅，备亡国之礼出降此事影响深远，各地局势为之变化。",
+      "王濬受降，安抚吴地官民此事影响深远，各地局势为之变化。",
+      "自汉末分裂，至此九十余年，天下复归一统",
+      "三国时代正式终结，西晋开启新纪元"
+    ]
+  },
+  {
+    "event_id": 4108,
+    "year": 280,
+    "month": 12,
+    "event_name": "三国时期终结",
+    "summary": "西晋统一全国，结束自184年黄巾之乱以来近百年的分裂局面",
+    "trigger_condition": "year == 280 AND month == 12",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "commerce": 1000,
+          "culture": 1000,
+          "loyalty": 70
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "司马炎在洛阳举行盛大庆功宴此事影响深远，各地局势为之变化。",
+      "收缴东吴图籍府库，统计全国户口田亩",
+      "颁布新政，安抚各地士族此事影响深远，各地局势为之变化。",
+      "百年战乱终结，百姓期盼太平此事影响深远，各地局势为之变化。",
+      "历史翻开新的一页，但西晋的隐患已然埋下"
+    ]
+  }
+]

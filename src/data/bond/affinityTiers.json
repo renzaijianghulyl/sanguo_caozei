@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "tiers": [
+    {
+      "min": 0,
+      "max": 20,
+      "label": "萍水相逢",
+      "narrativeHint": "称呼可带疏离，可用'足下'、'阁下'"
+    },
+    {
+      "min": 21,
+      "max": 50,
+      "label": "相识",
+      "narrativeHint": "可称壮士、义士，可用'君'、'公'"
+    },
+    {
+      "min": 51,
+      "max": 75,
+      "label": "知交",
+      "narrativeHint": "可称将军、阁下，可用'明公'、'主公'（若为上下级）"
+    },
+    {
+      "min": 76,
+      "max": 100,
+      "label": "莫逆",
+      "narrativeHint": "可称明公、主公，或直接称字，语气亲切"
+    }
+  ]
+}

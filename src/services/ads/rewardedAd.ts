@@ -11,6 +11,15 @@ function createAdInstance(): void {
   adInitAttempted = true;
   if (typeof wx === "undefined" || typeof wx.createRewardedVideoAd !== "function") return;
   try {
+    const accountInfo = (wx as { getAccountInfoSync?: () => { miniProgram?: { envVersion?: string } } }).getAccountInfoSync?.();
+    const env = accountInfo?.miniProgram?.envVersion;
+    if (env === "develop" || env === "trial") {
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
     rewardedAd = wx.createRewardedVideoAd({ adUnitId: ClientConfig.AD_UNIT_ID });
     rewardedAd.onLoad(() => {
       adReady = true;

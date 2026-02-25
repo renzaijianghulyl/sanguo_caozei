@@ -8,6 +8,8 @@ export interface SystemInfo {
   statusBarHeight: number;
   /** 安全区域顶部偏移（刘海/异形屏），无则取 statusBarHeight */
   safeAreaTop: number;
+  /** 安全区域底部留白（Home 条/异形屏），输入区应在此之上 */
+  safeAreaBottom: number;
 }
 
 type TouchEventShape = {
@@ -34,17 +36,43 @@ export function getSystemInfo(): SystemInfo {
     windowHeight?: number;
     pixelRatio?: number;
     statusBarHeight?: number;
-    safeArea?: { top?: number };
+    safeArea?: { top?: number; bottom?: number };
   };
   const statusBar = info.statusBarHeight ?? 0;
   const safeTop = info.safeArea?.top ?? statusBar;
+  const winH = info.windowHeight ?? 667;
+  const safeBottom = info.safeArea?.bottom;
+  const bottomInset =
+    safeBottom != null ? Math.max(0, winH - safeBottom) : 0;
   return {
     windowWidth: info.windowWidth || 375,
-    windowHeight: info.windowHeight || 667,
+    windowHeight: winH,
     pixelRatio: info.pixelRatio || 2,
     statusBarHeight: statusBar,
-    safeAreaTop: Math.max(statusBar, safeTop, 0)
+    safeAreaTop: Math.max(statusBar, safeTop, 0),
+    safeAreaBottom: bottomInset
   };
+}
+
+type MenuButtonRect = { left?: number; top?: number; height?: number; width?: number };
+
+/** 微信小程序右上角胶囊左边界 x（逻辑坐标），用于布局避让；无 API 时返回 undefined */
+export function getMenuButtonCapsuleLeft(): number | undefined {
+  const rect = getMenuButtonRect();
+  return typeof rect?.left === "number" ? rect.left : undefined;
+}
+
+/** 微信小程序右上角胶囊位置与尺寸（逻辑坐标），用于与「系统」按钮对齐；无 API 时返回 undefined */
+export function getMenuButtonRect(): MenuButtonRect | undefined {
+  if (typeof wx === "undefined" || typeof (wx as { getMenuButtonBoundingClientRect?: () => MenuButtonRect }).getMenuButtonBoundingClientRect !== "function") {
+    return undefined;
+  }
+  try {
+    const rect = (wx as { getMenuButtonBoundingClientRect: () => MenuButtonRect }).getMenuButtonBoundingClientRect();
+    return rect && (typeof rect.left === "number" || typeof rect.top === "number") ? rect : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function createCanvas(): CanvasSurface | null {

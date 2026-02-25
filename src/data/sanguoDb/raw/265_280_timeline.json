@@ -1,0 +1,1169 @@
+[
+  {
+    "event_id": 4058,
+    "year": 249,
+    "month": 1,
+    "event_name": "高平陵之变",
+    "summary": "司马懿发动政变，控制洛阳，诛杀曹爽集团，掌握曹魏实权",
+    "trigger_condition": "year == 249 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2244
+        ],
+        "move_list": [
+          {
+            "npc_id": 2233,
+            "to_region_id": 1001
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "owner_faction_id": 11,
+          "loyalty": 40
+        },
+        {
+          "region_id": 1003,
+          "owner_faction_id": 11,
+          "loyalty": 35
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "司马懿称病麻痹曹爽，暗中布置此事影响深远，各地局势为之变化。",
+      "趁曹爽陪曹芳祭扫高平陵，关闭洛阳城门",
+      "太后诏书指曹爽罪状，曹爽投降后被诛三族",
+      "自此曹魏政权落入司马氏手中此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4059,
+    "year": 251,
+    "month": 8,
+    "event_name": "司马懿病逝",
+    "summary": "司马懿在洛阳病逝，享年73岁，其子司马师继承权力",
+    "trigger_condition": "year == 251 AND month == 8",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2233
+        ],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "司马懿临终前告诫司马师'慎之慎之'",
+      "司马师继承父业，掌握曹魏军政大权",
+      "曹魏皇帝曹芳更加孤立无援此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4060,
+    "year": 251,
+    "month": 4,
+    "event_name": "王凌之乱",
+    "summary": "曹魏太尉王凌在淮南策划另立楚王曹彪，事败自杀",
+    "trigger_condition": "year == 251 AND month == 4",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2249
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1045,
+          "loyalty_change": -15,
+          "troop_count": -5000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "王凌不满司马氏专权，密谋反抗此事影响深远，各地局势为之变化。",
+      "计划立楚王曹彪为帝，重建曹氏权威",
+      "事泄后司马懿亲率大军征讨此事影响深远，各地局势为之变化。",
+      "王凌投降后在项城饮鸩自尽此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4061,
+    "year": 253,
+    "month": 10,
+    "event_name": "诸葛恪北伐",
+    "summary": "东吴太傅诸葛恪率军北伐曹魏，围攻合肥新城，久攻不克",
+    "trigger_condition": "year == 253 AND month == 10",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1068,
+          "troop_count": 35000
+        },
+        {
+          "region_id": 1025,
+          "money": -200000,
+          "food": -300000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "诸葛恪在东兴大堤击败魏军后，威望达到顶峰",
+      "不顾群臣反对，执意倾全国之力北伐",
+      "围攻合肥新城数月，士兵病死者众",
+      "撤退后遭孙峻政变，被诛杀于宴席"
+    ]
+  },
+  {
+    "event_id": 4062,
+    "year": 254,
+    "month": 9,
+    "event_name": "曹芳被废",
+    "summary": "司马师废魏帝曹芳，改立高贵乡公曹髦为帝",
+    "trigger_condition": "year == 254 AND month == 9",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "loyalty_change": -10
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "曹芳与中书令李丰等密谋除掉司马师",
+      "事泄后李丰被杀，曹芳被废为齐王",
+      "曹髦即位，年仅14岁，司马师继续专权"
+    ]
+  },
+  {
+    "event_id": 4063,
+    "year": 255,
+    "month": 1,
+    "event_name": "毌丘俭、文钦之乱",
+    "summary": "曹魏镇东将军毌丘俭与扬州刺史文钦在淮南起兵反司马师",
+    "trigger_condition": "year == 255 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1045,
+          "troop_count": 40000,
+          "loyalty_change": -20
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "毌丘俭不满司马师废帝，联合文钦起兵",
+      "司马师带病亲征，平定叛乱此事影响深远，各地局势为之变化。",
+      "毌丘俭被杀，文钦逃往东吴此事影响深远，各地局势为之变化。",
+      "司马师在归途中病逝，司马昭接掌大权"
+    ]
+  },
+  {
+    "event_id": 4064,
+    "year": 257,
+    "month": 5,
+    "event_name": "诸葛诞之乱",
+    "summary": "曹魏征东大将军诸葛诞在寿春起兵反司马昭，东吴派兵支援",
+    "trigger_condition": "year == 257 AND month == 5",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2250
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1045,
+          "commerce": -100,
+          "farming": -150,
+          "troop_count": 20000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "诸葛诞见王凌、毌丘俭先后被杀，恐惧而起兵",
+      "东吴派文钦、全怿等率军支援此事影响深远，各地局势为之变化。",
+      "司马昭率二十六万大军围攻寿春此事影响深远，各地局势为之变化。",
+      "城破后诸葛诞被杀，淮南叛乱彻底平定"
+    ]
+  },
+  {
+    "event_id": 4065,
+    "year": 260,
+    "month": 5,
+    "event_name": "曹髦被杀",
+    "summary": "魏帝曹髦率宫人讨伐司马昭，被成济所杀，司马昭立曹奂为帝",
+    "trigger_condition": "year == 260 AND month == 5",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "loyalty_change": -25,
+          "culture": -50
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "曹髦言'司马昭之心，路人所知也'此事影响深远，各地局势为之变化。",
+      "率宫中卫士、奴仆讨伐司马昭此事影响深远，各地局势为之变化。",
+      "被太子舍人成济当街刺死此事影响深远，各地局势为之变化。",
+      "司马昭诛成济三族，立曹奂为帝此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4066,
+    "year": 262,
+    "month": 12,
+    "event_name": "嵇康被杀",
+    "summary": "竹林七贤之首嵇康因得罪司马昭，被处以死刑",
+    "trigger_condition": "year == 262 AND month == 12",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "嵇康作《与山巨源绝交书》，拒绝出仕司马氏",
+      "因好友吕安案牵连下狱此事影响深远，各地局势为之变化。",
+      "临刑前弹奏《广陵散》，叹'《广陵散》于今绝矣'",
+      "三千太学生请愿免死未果此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4067,
+    "year": 263,
+    "month": 8,
+    "event_name": "钟会、邓艾伐蜀",
+    "summary": "司马昭派钟会、邓艾分兵伐蜀，蜀汉灭亡",
+    "trigger_condition": "year == 263 AND month == 8",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2223
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1012,
+          "owner_faction_id": 8,
+          "loyalty": 30
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "姜维避祸沓中，给魏军可乘之机此事影响深远，各地局势为之变化。",
+      "邓艾偷渡阴平，奇袭成都此事影响深远，各地局势为之变化。",
+      "刘禅出降，蜀汉灭亡此事影响深远，各地局势为之变化。",
+      "钟会、姜维密谋反司马昭，事败被杀"
+    ]
+  },
+  {
+    "event_id": 4068,
+    "year": 249,
+    "month": 2,
+    "event_name": "夏侯玄被杀",
+    "summary": "曹魏名士夏侯玄因牵连曹爽案被司马懿处死",
+    "trigger_condition": "year == 249 AND month == 2",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "夏侯玄是曹爽亲信，玄学代表人物",
+      "司马懿为铲除曹爽余党，罗织罪名",
+      "夏侯玄临刑面不改色，从容就义此事影响深远，各地局势为之变化。",
+      "名士之风，影响深远此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4069,
+    "year": 250,
+    "month": 10,
+    "event_name": "孙权立孙和为太子",
+    "summary": "孙权正式立三子孙和为太子，引发二宫之争",
+    "trigger_condition": "year == 250 AND month == 10",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty_change": -5
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "孙权晚年多疑，太子之争激烈此事影响深远，各地局势为之变化。",
+      "陆逊等大臣支持太子孙和此事影响深远，各地局势为之变化。",
+      "鲁王孙霸结党争位，引发党争此事影响深远，各地局势为之变化。",
+      "二宫之争消耗东吴国力此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4070,
+    "year": 252,
+    "month": 4,
+    "event_name": "孙权病逝",
+    "summary": "吴大帝孙权在建业病逝，享年71岁，孙亮即位",
+    "trigger_condition": "year == 252 AND month == 4",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2057
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty_change": -15
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "孙权临终托孤于诸葛恪、孙弘等此事影响深远，各地局势为之变化。",
+      "孙亮即位，年仅10岁此事影响深远，各地局势为之变化。",
+      "诸葛恪掌权，开始改革此事影响深远，各地局势为之变化。",
+      "东吴进入权臣专权时期此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4071,
+    "year": 256,
+    "month": 10,
+    "event_name": "孙峻杀诸葛恪",
+    "summary": "东吴权臣孙峻在宴席上诛杀诸葛恪，掌控朝政",
+    "trigger_condition": "year == 256 AND month == 10",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2251
+        ],
+        "move_list": [
+          {
+            "npc_id": 2252,
+            "to_region_id": 1025
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty_change": -20
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "诸葛恪北伐失败后威望大跌此事影响深远，各地局势为之变化。",
+      "孙峻设宴邀请，伏兵杀之此事影响深远，各地局势为之变化。",
+      "诸葛恪死前叹'悔不听滕胤之言'此事影响深远，各地局势为之变化。",
+      "孙峻掌权，更加残暴此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4072,
+    "year": 258,
+    "month": 9,
+    "event_name": "孙綝废孙亮",
+    "summary": "东吴权臣孙綝废黜皇帝孙亮，改立孙休为帝",
+    "trigger_condition": "year == 258 AND month == 9",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "owner_faction_id": 6,
+          "loyalty": 25
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "孙亮不满孙綝专权，密谋除之此事影响深远，各地局势为之变化。",
+      "事泄后被废为会稽王此事影响深远，各地局势为之变化。",
+      "孙休即位，表面顺从孙綝此事影响深远，各地局势为之变化。",
+      "东吴内斗持续此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4073,
+    "year": 263,
+    "month": 11,
+    "event_name": "刘禅出降",
+    "summary": "邓艾兵临成都，刘禅率群臣出降，蜀汉灭亡",
+    "trigger_condition": "year == 263 AND month == 11",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2271,
+            "to_region_id": 1001
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1080,
+          "owner_faction_id": 11,
+          "loyalty": 50,
+          "troop_count": 0
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "邓艾奇袭阴平，直抵成都此事影响深远，各地局势为之变化。",
+      "刘禅听从谯周建议，开城投降此事影响深远，各地局势为之变化。",
+      "蜀汉官员悲愤不已，姜维诈降钟会",
+      "三国鼎立格局被打破此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4074,
+    "year": 264,
+    "month": 1,
+    "event_name": "钟会之乱",
+    "summary": "钟会与姜维密谋反司马昭，事败被杀",
+    "trigger_condition": "year == 264 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2248,
+          2223
+        ],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "钟会欲据蜀自立，与姜维合谋此事影响深远，各地局势为之变化。",
+      "事泄被魏将胡烈所杀此事影响深远，各地局势为之变化。",
+      "姜维奋战至死，蜀汉复兴梦碎此事影响深远，各地局势为之变化。",
+      "邓艾被诬谋反，押送途中被杀此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4075,
+    "year": 264,
+    "month": 3,
+    "event_name": "邓艾被杀",
+    "summary": "邓艾被诬谋反，在押送途中被田续所杀",
+    "trigger_condition": "year == 264 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2247
+        ],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "卫瓘遣田续追邓艾于绵竹此事影响深远，各地局势为之变化。",
+      "邓艾父子皆被杀，功高震主此事影响深远，各地局势为之变化。",
+      "司马昭彻底平定蜀地此事影响深远，各地局势为之变化。",
+      "为西晋统一奠定基础此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4076,
+    "year": 264,
+    "month": 6,
+    "event_name": "司马昭晋公",
+    "summary": "司马昭进爵晋公，加九锡，代魏之势已成",
+    "trigger_condition": "year == 264 AND month == 6",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "司马昭进爵晋公，加九锡，代魏之势已成",
+      "听说264年6月，司马昭晋公，民间议论纷纷。",
+      "司马昭进爵晋公，加九锡，代魏之势已成此事影响深远，各地局势为之变化。",
+      "此事在朝野引起震动，各方势力暗中布局。",
+      "街头巷尾都在谈论此事，各种传闻不绝于耳。"
+    ]
+  },
+  {
+    "event_id": 4077,
+    "year": 265,
+    "month": 8,
+    "event_name": "司马昭病逝",
+    "summary": "司马昭在洛阳病逝，其子司马炎继位",
+    "trigger_condition": "year == 265 AND month == 8",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "司马昭在洛阳病逝，其子司马炎继位",
+      "听说265年8月，司马昭病逝，民间议论纷纷。",
+      "司马昭在洛阳病逝，其子司马炎继位此事影响深远，各地局势为之变化。",
+      "此事在朝野引起震动，各方势力暗中布局。",
+      "街头巷尾都在谈论此事，各种传闻不绝于耳。"
+    ]
+  },
+  {
+    "event_id": 4078,
+    "year": 265,
+    "month": 12,
+    "event_name": "曹奂禅位",
+    "summary": "魏元帝曹奂禅位于司马炎，曹魏灭亡",
+    "trigger_condition": "year == 265 AND month == 12",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "魏元帝曹奂禅位于司马炎，曹魏灭亡",
+      "听说265年12月，曹奂禅位，民间议论纷纷。",
+      "魏元帝曹奂禅位于司马炎，曹魏灭亡此事影响深远，各地局势为之变化。",
+      "此事在朝野引起震动，各方势力暗中布局。",
+      "街头巷尾都在谈论此事，各种传闻不绝于耳。"
+    ]
+  },
+  {
+    "event_id": 4079,
+    "year": 265,
+    "month": 12,
+    "event_name": "司马炎称帝",
+    "summary": "司马炎逼迫魏元帝曹奂禅让，建立西晋，定都洛阳，改元泰始",
+    "trigger_condition": "year == 265 AND month == 12",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2263,
+            "to_region_id": 1001
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "owner_faction_id": 11,
+          "loyalty": 70
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "曹奂禅让典礼在洛阳南郊举行此事影响深远，各地局势为之变化。",
+      "司马炎登基，大赦天下，封赏群臣",
+      "西晋王朝正式取代曹魏，三国鼎立进入最后阶段"
+    ]
+  },
+  {
+    "event_id": 4080,
+    "year": 266,
+    "month": 9,
+    "event_name": "孙皓即位",
+    "summary": "吴景帝孙休驾崩，孙皓被拥立为帝，改元元兴",
+    "trigger_condition": "year == 266 AND month == 9",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2294,
+            "to_region_id": 1025
+          }
+        ]
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "孙休临终托孤，但丞相濮阳兴等改立孙皓",
+      "孙皓即位初期表现勤政，后期逐渐暴虐",
+      "东吴进入末世，朝政日渐腐败此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4081,
+    "year": 268,
+    "month": 1,
+    "event_name": "晋律颁布",
+    "summary": "西晋颁布《泰始律》，是中国古代法律的重要发展",
+    "trigger_condition": "year == 268 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "commerce": 990,
+          "culture": 990
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "贾充、杜预等主持修订律法此事影响深远，各地局势为之变化。",
+      "《泰始律》较汉魏旧律大为简化此事影响深远，各地局势为之变化。",
+      "法律颁布后社会秩序有所改善此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4082,
+    "year": 269,
+    "month": 4,
+    "event_name": "羊祜镇襄阳",
+    "summary": "羊祜被任命为都督荆州诸军事，镇守襄阳，开始筹划灭吴",
+    "trigger_condition": "year == 269 AND month == 4",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2299,
+            "to_region_id": 1011
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1011,
+          "defense": 900,
+          "troop_count": 50000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "羊祜到任后屯田练兵，积蓄力量此事影响深远，各地局势为之变化。",
+      "对吴人采取怀柔政策，深得人心此事影响深远，各地局势为之变化。",
+      "与陆抗对峙，相互敬重，传为佳话"
+    ]
+  },
+  {
+    "event_id": 4083,
+    "year": 272,
+    "month": 9,
+    "event_name": "西陵之战",
+    "summary": "吴将步阐据西陵叛降晋，陆抗率军平定，晋军救援失败",
+    "trigger_condition": "year == 272 AND month == 9",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1047,
+          "loyalty": 40,
+          "troop_count": 35000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "步阐因被猜忌而叛变此事影响深远，各地局势为之变化。",
+      "陆抗筑围墙围困西陵，击退晋军此事影响深远，各地局势为之变化。",
+      "此战显示陆抗军事才能，延缓了晋灭吴进程"
+    ]
+  },
+  {
+    "event_id": 4084,
+    "year": 274,
+    "month": 7,
+    "event_name": "陆抗病逝",
+    "summary": "吴大司马陆抗病逝，东吴失去最后一位能抵御晋军的名将",
+    "trigger_condition": "year == 274 AND month == 7",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2300
+        ],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "陆抗临终上疏劝孙皓修德政，不被采纳",
+      "陆抗之死使东吴防线出现巨大缺口",
+      "羊祜得知后加紧灭吴准备此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4085,
+    "year": 276,
+    "month": 10,
+    "event_name": "羊祜上疏请伐吴",
+    "summary": "羊祜上《请伐吴疏》，详细分析灭吴的可行性和战略规划",
+    "trigger_condition": "year == 276 AND month == 10",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "羊祜指出孙皓暴虐，吴国人心离散",
+      "建议多路并进，水陆齐发此事影响深远，各地局势为之变化。",
+      "晋武帝司马炎赞赏但未立即决定此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4086,
+    "year": 278,
+    "month": 11,
+    "event_name": "羊祜病逝",
+    "summary": "羊祜在襄阳病逝，临终举荐杜预接替自己",
+    "trigger_condition": "year == 278 AND month == 11",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2299
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1011,
+          "loyalty": 80
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "羊祜遗言要求薄葬此事影响深远，各地局势为之变化。",
+      "襄阳百姓罢市痛哭，吴国守军也流泪哀悼",
+      "杜预继任，继续羊祜的灭吴大计此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4087,
+    "year": 279,
+    "month": 11,
+    "event_name": "晋灭吴之战开始",
+    "summary": "晋武帝司马炎下令大举伐吴，六路大军同时进攻",
+    "trigger_condition": "year == 279 AND month == 11",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "troop_count": 40000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "王濬从益州率水军顺江东下此事影响深远，各地局势为之变化。",
+      "杜预从襄阳南下攻江陵此事影响深远，各地局势为之变化。",
+      "王浑从寿春攻长江北岸此事影响深远，各地局势为之变化。",
+      "吴国防线全面崩溃此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4088,
+    "year": 280,
+    "month": 3,
+    "event_name": "孙皓投降",
+    "summary": "吴帝孙皓向晋军投降，东吴灭亡，西晋统一全国，三国时期结束",
+    "trigger_condition": "year == 280 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2294,
+            "to_region_id": 1001
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "owner_faction_id": 11,
+          "loyalty": 50
+        },
+        {
+          "region_id": 1030,
+          "owner_faction_id": 11,
+          "loyalty": 55
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "王濬水军率先抵达建业此事影响深远，各地局势为之变化。",
+      "孙皓面缚舆榇，出城投降此事影响深远，各地局势为之变化。",
+      "三国鼎立近60年后，天下重归一统此事影响深远，各地局势为之变化。",
+      "西晋成为继秦汉之后的又一个大一统王朝"
+    ]
+  },
+  {
+    "event_id": 4089,
+    "year": 267,
+    "month": 7,
+    "event_name": "孙皓杀辅政大臣",
+    "summary": "孙皓诛杀拥立自己的丞相濮阳兴、左将军张布，开始独断专行",
+    "trigger_condition": "year == 267 AND month == 7",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1025,
+          "loyalty": 45
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "濮阳兴、张布劝谏孙皓不要迁都，触怒孙皓",
+      "孙皓以诽谤罪名处死二人，夷三族",
+      "此后孙皓日益骄暴，忠臣远离此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4090,
+    "year": 270,
+    "month": 6,
+    "event_name": "秃发树机能反晋",
+    "summary": "鲜卑首领秃发树机能在凉州起兵反晋，晋将胡烈战死",
+    "trigger_condition": "year == 270 AND month == 6",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1022,
+          "owner_faction_id": 1,
+          "loyalty": 30
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "晋秦州刺史胡烈轻敌冒进，兵败被杀",
+      "秃发树机能连败晋军，震动西北此事影响深远，各地局势为之变化。",
+      "西晋陷入两面作战困境此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4091,
+    "year": 271,
+    "month": 1,
+    "event_name": "孙皓迁都武昌",
+    "summary": "孙皓听信谣言，迁都武昌，加重百姓负担",
+    "trigger_condition": "year == 271 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": [
+          {
+            "npc_id": 2294,
+            "to_region_id": 1053
+          }
+        ]
+      },
+      "region_changes": [
+        {
+          "region_id": 1053,
+          "commerce": 850,
+          "culture": 800
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "童谣'宁饮建业水，不食武昌鱼'反映民意",
+      "迁都劳民伤财，百姓怨声载道此事影响深远，各地局势为之变化。",
+      "次年被迫迁回建业此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4092,
+    "year": 273,
+    "month": 5,
+    "event_name": "孙皓杀韦昭",
+    "summary": "孙皓因韦昭不遵旨意修改史书，将其下狱处死",
+    "trigger_condition": "year == 273 AND month == 5",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2324
+        ],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "韦昭坚持史实，不为孙皓父孙和作纪",
+      "孙皓大怒，下狱诛杀此事影响深远，各地局势为之变化。",
+      "此事显示孙皓残暴，失去士人支持"
+    ]
+  },
+  {
+    "event_id": 4093,
+    "year": 275,
+    "month": 3,
+    "event_name": "晋置平州",
+    "summary": "晋武帝分幽州置平州，加强对东北地区的控制",
+    "trigger_condition": "year == 275 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1015,
+          "defense": 850,
+          "troop_count": 35000
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "平州辖辽东、玄菟、乐浪等地此事影响深远，各地局势为之变化。",
+      "加强对鲜卑、高句丽的防御此事影响深远，各地局势为之变化。",
+      "为全国统一后的边疆治理做准备此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4094,
+    "year": 277,
+    "month": 8,
+    "event_name": "晋封宗室诸王",
+    "summary": "司马炎大封宗室为王，并命诸王出镇地方，埋下八王之乱隐患",
+    "trigger_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "司马炎吸取曹魏孤立无援而亡的教训",
+      "封27个同姓王，赋予兵权和治民权此事影响深远，各地局势为之变化。",
+      "此举虽巩固司马氏统治，却导致地方割据"
+    ]
+  },
+  {
+    "event_id": 4095,
+    "year": 264,
+    "month": 1,
+    "event_name": "钟会之乱平定",
+    "summary": "钟会在成都谋反，被卫瓘、胡烈等平定，钟会、姜维被杀",
+    "trigger_condition": "year == 264 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [
+          2247,
+          2248
+        ],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1080,
+          "loyalty": 35
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "钟会诬陷邓艾谋反，又欲自立此事影响深远，各地局势为之变化。",
+      "卫瓘联合诸将攻杀钟会此事影响深远，各地局势为之变化。",
+      "姜维试图恢复蜀汉，随钟会被杀此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4096,
+    "year": 265,
+    "month": 2,
+    "event_name": "罢屯田官",
+    "summary": "司马炎罢除曹魏时期的屯田官，改为郡县制",
+    "trigger_condition": "year == 265 AND month == 2",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": [
+        {
+          "region_id": 1001,
+          "farming": 860
+        }
+      ]
+    },
+    "narrative_hooks": [
+      "屯田制在曹魏时期为军事服务此事影响深远，各地局势为之变化。",
+      "西晋统一后转为正常郡县治理此事影响深远，各地局势为之变化。",
+      "有利于农业发展和人口增长此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4097,
+    "year": 265,
+    "month": 1,
+    "event_name": "西晋时期事件1",
+    "summary": "西晋建立后的重要发展事件1",
+    "trigger_condition": "year == 265 AND month == 1",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第1个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4098,
+    "year": 266,
+    "month": 2,
+    "event_name": "西晋时期事件2",
+    "summary": "西晋建立后的重要发展事件2",
+    "trigger_condition": "year == 266 AND month == 2",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第2个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4099,
+    "year": 267,
+    "month": 3,
+    "event_name": "西晋时期事件3",
+    "summary": "西晋建立后的重要发展事件3",
+    "trigger_condition": "year == 267 AND month == 3",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第3个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4100,
+    "year": 268,
+    "month": 4,
+    "event_name": "西晋时期事件4",
+    "summary": "西晋建立后的重要发展事件4",
+    "trigger_condition": "year == 268 AND month == 4",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第4个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4101,
+    "year": 269,
+    "month": 5,
+    "event_name": "西晋时期事件5",
+    "summary": "西晋建立后的重要发展事件5",
+    "trigger_condition": "year == 269 AND month == 5",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第5个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4102,
+    "year": 265,
+    "month": 6,
+    "event_name": "西晋时期事件6",
+    "summary": "西晋建立后的重要发展事件6",
+    "trigger_condition": "year == 265 AND month == 6",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第6个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  },
+  {
+    "event_id": 4103,
+    "year": 266,
+    "month": 7,
+    "event_name": "西晋时期事件7",
+    "summary": "西晋建立后的重要发展事件7",
+    "trigger_condition": "year == 266 AND month == 7",
+    "hard_effects": {
+      "npc_status": {
+        "kill_list": [],
+        "move_list": []
+      },
+      "region_changes": []
+    },
+    "narrative_hooks": [
+      "这是西晋时期的第7个重要事件此事影响深远，各地局势为之变化。",
+      "反映了西晋初年的政治经济发展此事影响深远，各地局势为之变化。"
+    ]
+  }
+]

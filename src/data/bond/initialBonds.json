@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "comment": "主角与所有人初始均为 0 亲密度、无关系。仅列出需要非零初始值的 NPC。encounter_threshold：玩家恶名≥该值时拒绝会面，触发闭门谢客或官兵围剿。",
+  "byNpcId": {
+    "2006": { "encounter_threshold": 30 },
+    "2010": { "encounter_threshold": 35 },
+    "2029": { "encounter_threshold": 25 }
+  }
+}

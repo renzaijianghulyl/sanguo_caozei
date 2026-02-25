@@ -1,0 +1,1011 @@
+[
+  {
+    "id": 2001,
+    "name": "张角",
+    "birth_year": 140,
+    "death_year": 184,
+    "appear_year": 170,
+    "str": 62,
+    "int": 85,
+    "pol": 78,
+    "lea": 70,
+    "personality_traits": [
+      "野心勃勃",
+      "善于蛊惑",
+      "理想主义"
+    ],
+    "speech_style": "道教术语混杂，带有神秘色彩",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2002,
+      2003
+    ],
+    "rivals": [
+      2009,
+      2010
+    ],
+    "current_region_id": 1001,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2002,
+    "name": "张宝",
+    "birth_year": 145,
+    "death_year": 184,
+    "appear_year": 172,
+    "str": 68,
+    "int": 72,
+    "pol": 60,
+    "lea": 65,
+    "personality_traits": [
+      "勇猛",
+      "急躁",
+      "忠诚"
+    ],
+    "speech_style": "直率粗犷，略带草莽气息",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2001,
+      2003
+    ],
+    "rivals": [],
+    "current_region_id": 1002,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2003,
+    "name": "张梁",
+    "birth_year": 147,
+    "death_year": 184,
+    "appear_year": 174,
+    "str": 70,
+    "int": 65,
+    "pol": 55,
+    "lea": 68,
+    "personality_traits": [
+      "好斗",
+      "讲义气",
+      "缺乏谋略"
+    ],
+    "speech_style": "言语粗俗，好战言辞",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2001,
+      2002
+    ],
+    "rivals": [],
+    "current_region_id": 1003,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2004,
+    "name": "波才",
+    "birth_year": 155,
+    "death_year": 184,
+    "appear_year": 180,
+    "str": 75,
+    "int": 60,
+    "pol": 50,
+    "lea": 72,
+    "personality_traits": [
+      "骁勇",
+      "善战",
+      "缺乏远见"
+    ],
+    "speech_style": "简洁直接，军事化语言",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2009
+    ],
+    "current_region_id": 1004,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2005,
+    "name": "张曼成",
+    "birth_year": 152,
+    "death_year": 184,
+    "appear_year": 178,
+    "str": 72,
+    "int": 58,
+    "pol": 52,
+    "lea": 65,
+    "personality_traits": [
+      "残忍",
+      "贪婪",
+      "善笼络"
+    ],
+    "speech_style": "威吓式语言，强调力量",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2010
+    ],
+    "current_region_id": 1009,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2006,
+    "name": "皇甫嵩",
+    "birth_year": 110,
+    "death_year": 195,
+    "appear_year": 160,
+    "str": 80,
+    "int": 85,
+    "pol": 70,
+    "lea": 88,
+    "personality_traits": [
+      "忠义",
+      "严谨",
+      "善用兵"
+    ],
+    "speech_style": "沉稳有力，带儒家风范",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2010,
+      2011
+    ],
+    "rivals": [
+      2001,
+      2004
+    ],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2007,
+    "name": "朱儁",
+    "birth_year": 105,
+    "death_year": 195,
+    "appear_year": 158,
+    "str": 78,
+    "int": 80,
+    "pol": 75,
+    "lea": 85,
+    "personality_traits": [
+      "刚直",
+      "果敢",
+      "重军纪"
+    ],
+    "speech_style": "简洁有力，军人气质",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2009,
+      2011
+    ],
+    "rivals": [
+      2005
+    ],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2008,
+    "name": "卢植",
+    "birth_year": 108,
+    "death_year": 192,
+    "appear_year": 162,
+    "str": 65,
+    "int": 90,
+    "pol": 85,
+    "lea": 75,
+    "personality_traits": [
+      "博学",
+      "正直",
+      "不善变通"
+    ],
+    "speech_style": "引经据典，学者风范",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2009,
+      2010
+    ],
+    "rivals": [],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2009,
+    "name": "何进",
+    "birth_year": 135,
+    "death_year": 189,
+    "appear_year": 170,
+    "str": 60,
+    "int": 55,
+    "pol": 50,
+    "lea": 58,
+    "personality_traits": [
+      "外戚权贵",
+      "优柔寡断",
+      "好排场"
+    ],
+    "speech_style": "官腔浓厚，缺乏深度",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2026
+    ],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2010,
+    "name": "曹操",
+    "birth_year": 155,
+    "death_year": 220,
+    "appear_year": 174,
+    "str": 72,
+    "int": 92,
+    "pol": 88,
+    "lea": 95,
+    "personality_traits": [
+      "多疑",
+      "果断",
+      "雄才大略"
+    ],
+    "speech_style": "机敏犀利，充满权谋色彩",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2016,
+      2017
+    ],
+    "rivals": [
+      2021,
+      2022
+    ],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2011,
+    "name": "夏侯惇",
+    "birth_year": 157,
+    "death_year": 220,
+    "appear_year": 176,
+    "str": 90,
+    "int": 62,
+    "pol": 58,
+    "lea": 82,
+    "personality_traits": [
+      "刚烈",
+      "忠勇",
+      "质朴"
+    ],
+    "speech_style": "直来直去，重情重义",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015,
+      2017
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2012,
+    "name": "夏侯渊",
+    "birth_year": 159,
+    "death_year": 219,
+    "appear_year": 178,
+    "str": 88,
+    "int": 65,
+    "pol": 55,
+    "lea": 85,
+    "personality_traits": [
+      "疾速",
+      "勇猛",
+      "擅奇袭"
+    ],
+    "speech_style": "简洁明快，行动派语言",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015,
+      2016
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2013,
+    "name": "曹仁",
+    "birth_year": 158,
+    "death_year": 223,
+    "appear_year": 177,
+    "str": 85,
+    "int": 70,
+    "pol": 65,
+    "lea": 87,
+    "personality_traits": [
+      "稳重",
+      "善守",
+      "顾全大局"
+    ],
+    "speech_style": "务实严谨，注重细节",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015,
+      2018
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2014,
+    "name": "曹洪",
+    "birth_year": 160,
+    "death_year": 232,
+    "appear_year": 179,
+    "str": 82,
+    "int": 60,
+    "pol": 50,
+    "lea": 75,
+    "personality_traits": [
+      "慷慨",
+      "忠义",
+      "好财货"
+    ],
+    "speech_style": "豪爽直接，略带市井气",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015,
+      2017
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2015,
+    "name": "孙坚",
+    "birth_year": 155,
+    "death_year": 191,
+    "appear_year": 172,
+    "str": 92,
+    "int": 70,
+    "pol": 65,
+    "lea": 88,
+    "personality_traits": [
+      "勇烈",
+      "果敢",
+      "轻敌"
+    ],
+    "speech_style": "豪迈激昂，充满英雄气概",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2024,
+      2025
+    ],
+    "rivals": [
+      2005
+    ],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2016,
+    "name": "程普",
+    "birth_year": 150,
+    "death_year": 215,
+    "appear_year": 168,
+    "str": 85,
+    "int": 72,
+    "pol": 68,
+    "lea": 82,
+    "personality_traits": [
+      "老成持重",
+      "顾全大局",
+      "忠心"
+    ],
+    "speech_style": "沉稳有度，经验丰富",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2020,
+      2025
+    ],
+    "rivals": [],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2017,
+    "name": "黄盖",
+    "birth_year": 145,
+    "death_year": 215,
+    "appear_year": 165,
+    "str": 87,
+    "int": 68,
+    "pol": 60,
+    "lea": 80,
+    "personality_traits": [
+      "刚毅",
+      "忠勇",
+      "善用火攻"
+    ],
+    "speech_style": "直率坦诚，略带火爆",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2020,
+      2024
+    ],
+    "rivals": [],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2018,
+    "name": "韩当",
+    "birth_year": 152,
+    "death_year": 225,
+    "appear_year": 175,
+    "str": 83,
+    "int": 60,
+    "pol": 55,
+    "lea": 78,
+    "personality_traits": [
+      "骁勇",
+      "善骑射",
+      "低调"
+    ],
+    "speech_style": "简洁务实，不喜夸饰",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2020
+    ],
+    "rivals": [],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2019,
+    "name": "刘备",
+    "birth_year": 161,
+    "death_year": 223,
+    "appear_year": 180,
+    "str": 75,
+    "int": 80,
+    "pol": 85,
+    "lea": 82,
+    "personality_traits": [
+      "仁德",
+      "坚韧",
+      "善于用人"
+    ],
+    "speech_style": "温厚诚恳，带有理想色彩",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2026,
+      2027
+    ],
+    "rivals": [],
+    "current_region_id": 1015,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2020,
+    "name": "关羽",
+    "birth_year": 160,
+    "death_year": 220,
+    "appear_year": 179,
+    "str": 97,
+    "int": 75,
+    "pol": 62,
+    "lea": 90,
+    "personality_traits": [
+      "忠义",
+      "骄傲",
+      "重诺"
+    ],
+    "speech_style": "庄重威严，略带傲气",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2025,
+      2027
+    ],
+    "rivals": [],
+    "current_region_id": 1015,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2021,
+    "name": "张飞",
+    "birth_year": 166,
+    "death_year": 221,
+    "appear_year": 183,
+    "str": 98,
+    "int": 40,
+    "pol": 30,
+    "lea": 85,
+    "personality_traits": [
+      "勇猛",
+      "暴躁",
+      "敬重士人"
+    ],
+    "speech_style": "粗声大气，直来直去",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2025,
+      2026
+    ],
+    "rivals": [],
+    "current_region_id": 1015,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2022,
+    "name": "袁绍",
+    "birth_year": 154,
+    "death_year": 202,
+    "appear_year": 172,
+    "str": 70,
+    "int": 75,
+    "pol": 78,
+    "lea": 82,
+    "personality_traits": [
+      "优柔寡断",
+      "好面子",
+      "四世三公"
+    ],
+    "speech_style": "文雅但缺乏决断，重门第",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2015,
+      2022
+    ],
+    "current_region_id": 1002,
+    "owner_faction_id": 4
+  },
+  {
+    "id": 2023,
+    "name": "袁术",
+    "birth_year": 156,
+    "death_year": 199,
+    "appear_year": 174,
+    "str": 65,
+    "int": 60,
+    "pol": 55,
+    "lea": 68,
+    "personality_traits": [
+      "狂妄",
+      "奢侈",
+      "目光短浅"
+    ],
+    "speech_style": "傲慢自大，好炫耀出身",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2021,
+      2015
+    ],
+    "current_region_id": 1007,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2024,
+    "name": "刘表",
+    "birth_year": 142,
+    "death_year": 208,
+    "appear_year": 165,
+    "str": 60,
+    "int": 80,
+    "pol": 85,
+    "lea": 70,
+    "personality_traits": [
+      "守成",
+      "多疑",
+      "善于治理"
+    ],
+    "speech_style": "文士风范，谨慎保守",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2025,
+    "name": "公孙瓒",
+    "birth_year": 150,
+    "death_year": 199,
+    "appear_year": 170,
+    "str": 85,
+    "int": 65,
+    "pol": 60,
+    "lea": 82,
+    "personality_traits": [
+      "刚猛",
+      "善骑射",
+      "排外"
+    ],
+    "speech_style": "干脆利落，军人气质",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2025
+    ],
+    "rivals": [
+      2021
+    ],
+    "current_region_id": 1015,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2026,
+    "name": "董卓",
+    "birth_year": 138,
+    "death_year": 192,
+    "appear_year": 160,
+    "str": 88,
+    "int": 50,
+    "pol": 40,
+    "lea": 85,
+    "personality_traits": [
+      "残暴",
+      "贪婪",
+      "专权"
+    ],
+    "speech_style": "蛮横霸道，威胁性语言",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1014,
+    "owner_faction_id": 3
+  },
+  {
+    "id": 2027,
+    "name": "吕布",
+    "birth_year": 156,
+    "death_year": 199,
+    "appear_year": 176,
+    "str": 100,
+    "int": 30,
+    "pol": 20,
+    "lea": 90,
+    "personality_traits": [
+      "勇冠三军",
+      "反复无常",
+      "好色"
+    ],
+    "speech_style": "嚣张跋扈，目中无人",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1014,
+    "owner_faction_id": 3
+  },
+  {
+    "id": 2028,
+    "name": "貂蝉",
+    "birth_year": 168,
+    "death_year": "未知",
+    "appear_year": 184,
+    "str": 15,
+    "int": 85,
+    "pol": 70,
+    "lea": 40,
+    "personality_traits": [
+      "美貌",
+      "机智",
+      "忠义"
+    ],
+    "speech_style": "温柔婉约，善于周旋",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2029,
+    "name": "荀彧",
+    "birth_year": 163,
+    "death_year": 212,
+    "appear_year": 180,
+    "str": 30,
+    "int": 95,
+    "pol": 92,
+    "lea": 70,
+    "personality_traits": [
+      "王佐之才",
+      "忠诚",
+      "坚持原则"
+    ],
+    "speech_style": "温文尔雅，逻辑严密",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2030,
+    "name": "郭嘉",
+    "birth_year": 170,
+    "death_year": 207,
+    "appear_year": 184,
+    "str": 25,
+    "int": 98,
+    "pol": 60,
+    "lea": 75,
+    "personality_traits": [
+      "奇谋",
+      "不拘小节",
+      "早逝"
+    ],
+    "speech_style": "犀利直接，不拘礼法",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2015
+    ],
+    "rivals": [],
+    "current_region_id": 1006,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2031,
+    "name": "周瑜",
+    "birth_year": 175,
+    "death_year": 210,
+    "appear_year": 184,
+    "str": 75,
+    "int": 96,
+    "pol": 80,
+    "lea": 92,
+    "personality_traits": [
+      "风流倜傥",
+      "智谋超群",
+      "气量狭小"
+    ],
+    "speech_style": "文雅中带锋芒，自信从容",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2020
+    ],
+    "rivals": [],
+    "current_region_id": 1011,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2032,
+    "name": "诸葛亮",
+    "birth_year": 181,
+    "death_year": 234,
+    "appear_year": 184,
+    "str": 40,
+    "int": 100,
+    "pol": 95,
+    "lea": 92,
+    "personality_traits": [
+      "鞠躬尽瘁",
+      "谨慎",
+      "多谋"
+    ],
+    "speech_style": "深思熟虑，引经据典",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1012,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2033,
+    "name": "马元义",
+    "birth_year": 148,
+    "death_year": 184,
+    "appear_year": 176,
+    "str": 68,
+    "int": 65,
+    "pol": 60,
+    "lea": 70,
+    "personality_traits": [
+      "组织能力强",
+      "忠诚"
+    ],
+    "speech_style": "沉稳有序，善于动员",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [
+      2001
+    ],
+    "rivals": [],
+    "current_region_id": 1001,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2034,
+    "name": "赵弘",
+    "birth_year": 153,
+    "death_year": 184,
+    "appear_year": 178,
+    "str": 72,
+    "int": 58,
+    "pol": 50,
+    "lea": 65,
+    "personality_traits": [
+      "勇猛",
+      "鲁莽"
+    ],
+    "speech_style": "粗犷豪放，好战",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1009,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2035,
+    "name": "丁原",
+    "birth_year": 140,
+    "death_year": 189,
+    "appear_year": 165,
+    "str": 75,
+    "int": 65,
+    "pol": 60,
+    "lea": 78,
+    "personality_traits": [
+      "忠直",
+      "不善权谋"
+    ],
+    "speech_style": "朴实刚直，军人作风",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2030
+    ],
+    "current_region_id": 1014,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2036,
+    "name": "张让",
+    "birth_year": 135,
+    "death_year": 189,
+    "appear_year": 160,
+    "str": 30,
+    "int": 80,
+    "pol": 70,
+    "lea": 40,
+    "personality_traits": [
+      "奸诈",
+      "阿谀",
+      "专权"
+    ],
+    "speech_style": "阴阳怪气，挑拨离间",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [
+      2013
+    ],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2037,
+    "name": "孔融",
+    "birth_year": 153,
+    "death_year": 208,
+    "appear_year": 170,
+    "str": 40,
+    "int": 85,
+    "pol": 80,
+    "lea": 60,
+    "personality_traits": [
+      "文人傲骨",
+      "直言敢谏",
+      "不善兵事"
+    ],
+    "speech_style": "引经据典，好辩",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1008,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2038,
+    "name": "陶谦",
+    "birth_year": 132,
+    "death_year": 194,
+    "appear_year": 158,
+    "str": 60,
+    "int": 75,
+    "pol": 78,
+    "lea": 70,
+    "personality_traits": [
+      "仁厚",
+      "保守",
+      "年老"
+    ],
+    "speech_style": "温和缓慢，长者风范",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1007,
+    "owner_faction_id": 1
+  },
+  {
+    "id": 2039,
+    "name": "卜己",
+    "birth_year": 151,
+    "death_year": 184,
+    "appear_year": 177,
+    "str": 70,
+    "int": 55,
+    "pol": 50,
+    "lea": 68,
+    "personality_traits": [
+      "勇猛",
+      "迷信"
+    ],
+    "speech_style": "神神叨叨，强调天意",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1004,
+    "owner_faction_id": 2
+  },
+  {
+    "id": 2040,
+    "name": "傅燮",
+    "birth_year": 140,
+    "death_year": 187,
+    "appear_year": 165,
+    "str": 75,
+    "int": 78,
+    "pol": 72,
+    "lea": 80,
+    "personality_traits": [
+      "忠烈",
+      "刚直"
+    ],
+    "speech_style": "正气凛然，不畏权贵",
+    "father_id": null,
+    "spouse_id": null,
+    "close_friends": [],
+    "rivals": [],
+    "current_region_id": 1001,
+    "owner_faction_id": 1
+  }
+]

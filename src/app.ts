@@ -7,7 +7,7 @@ export {
   handleTouch,
   showKeyboard,
   submitInput,
-  toggleSaveLoadPanel,
+  restartGame,
   manualSave,
   loadLatestSave,
   render,

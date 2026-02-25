@@ -34,6 +34,22 @@ describe("getLocalIntentType", () => {
     expect(getLocalIntentType("reward")).toBe("ad");
   });
 
+  it("returns attrs for 属性/属性说明", () => {
+    expect(getLocalIntentType("属性")).toBe("attrs");
+    expect(getLocalIntentType("属性说明")).toBe("attrs");
+  });
+
+  it("returns feedback for 反馈/feedback", () => {
+    expect(getLocalIntentType("反馈")).toBe("feedback");
+    expect(getLocalIntentType("feedback")).toBe("feedback");
+  });
+
+  it("returns retry for 重试/retry/再试", () => {
+    expect(getLocalIntentType("重试")).toBe("retry");
+    expect(getLocalIntentType("retry")).toBe("retry");
+    expect(getLocalIntentType("再试")).toBe("retry");
+  });
+
   it("returns null for non-local intents", () => {
     expect(getLocalIntentType("前往洛阳")).toBe(null);
     expect(getLocalIntentType("寻找盟友")).toBe(null);

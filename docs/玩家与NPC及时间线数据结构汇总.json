@@ -1,0 +1,152 @@
+{
+  "description": "项目中 PlayerState、NPCState、Timeline/EventLog 相关 TypeScript 接口字段与类型汇总（仅结构，无逻辑）",
+  "source_files": [
+    "src/core/state.ts",
+    "src/core/effectsApplier.ts",
+    "src/core/RelationManager.ts",
+    "src/core/BondSystem.ts",
+    "src/data/sanguoDb/types.ts",
+    "src/data/sanguoDb/timeline.ts"
+  ],
+  "types": {
+    "PlayerAttributes": {
+      "strength": "number",
+      "intelligence": "number",
+      "charm": "number",
+      "luck": "number"
+    },
+    "PlayerResources": {
+      "gold": "number",
+      "food": "number",
+      "soldiers": "number"
+    },
+    "PlayerLocation": {
+      "region": "string",
+      "scene": "string"
+    },
+    "PlayerState": {
+      "id": "string",
+      "name": "string | undefined",
+      "gender": "\"male\" | \"female\" | undefined",
+      "birth_year": "number | undefined",
+      "attrs": "PlayerAttributes",
+      "legend": "number",
+      "tags": "string[]",
+      "reputation": "number",
+      "resources": "PlayerResources",
+      "location": "PlayerLocation",
+      "stamina": "number | undefined",
+      "ambition": "AmbitionType | undefined"
+    },
+    "AmbitionType": "\"unify\" | \"wealth\" | \"fortress\" | \"scholar\"",
+    "PlayerStateDelta": {
+      "attrs": "Partial<PlayerAttributes>",
+      "legend": "number",
+      "reputation": "number",
+      "resources": "Partial<PlayerResources>"
+    },
+    "PlayerRelationType": "\"\" | \"acquaintance\" | \"sworn_brother\" | \"spouse\"",
+    "WorldTime": {
+      "year": "number",
+      "month": "number"
+    },
+    "Bond": {
+      "affinity": "number",
+      "milestones": "string[]",
+      "last_seen_world_time": "WorldTime"
+    },
+    "NPCState": {
+      "id": "string",
+      "name": "string | undefined",
+      "birth_year": "number | undefined",
+      "death_year": "number | undefined",
+      "stance": "string",
+      "trust": "number",
+      "location": "string | undefined",
+      "player_favor": "number | undefined",
+      "player_relation": "PlayerRelationType | undefined",
+      "relations": "Record<string, number> | undefined",
+      "bond": "Bond | undefined"
+    },
+    "NPCRecord": {
+      "id": "number",
+      "name": "string",
+      "birth_year": "number",
+      "death_year": "number",
+      "appear_year": "number",
+      "str": "number",
+      "int": "number",
+      "pol": "number",
+      "lea": "number",
+      "personality_traits": "string[] | undefined",
+      "speech_style": "string | undefined",
+      "father_id": "number | null",
+      "spouse_id": "number | null",
+      "close_friends": "number[] | undefined",
+      "rivals": "number[] | undefined",
+      "current_region_id": "number",
+      "owner_faction_id": "number"
+    },
+    "EventLogEntry": {
+      "eventId": "string",
+      "playerId": "string",
+      "triggeredAt": "string",
+      "recordedAt": "string"
+    },
+    "TimelineEventRecord": {
+      "event_id": "number",
+      "year": "number",
+      "month": "number",
+      "event_name": "string",
+      "summary": "string | undefined",
+      "trigger_condition": "string | undefined",
+      "hard_effects": "unknown",
+      "narrative_hooks": "string[] | undefined"
+    },
+    "TimelineEvent": {
+      "year": "number",
+      "label": "string"
+    },
+    "TimelineEventWithDetails": {
+      "year": "number",
+      "label": "string",
+      "summary": "string | undefined",
+      "narrative_hooks": "string[] | undefined"
+    },
+    "WorldState": {
+      "era": "string",
+      "flags": "string[]",
+      "time": {
+        "year": "number",
+        "month": "number",
+        "day": "number"
+      },
+      "regionStatus": "Record<string, string> | undefined",
+      "regions": "Record<string, { stability?: number; unrest?: number }> | undefined"
+    },
+    "GameProgress": {
+      "totalTurns": "number",
+      "lastEventId": "string",
+      "lastEventTime": "string"
+    },
+    "GameSaveMeta": {
+      "version": "string",
+      "createdAt": "string",
+      "lastSaved": "string",
+      "lastAutoSave": "string | undefined",
+      "playerId": "string",
+      "saveName": "string",
+      "saveSlot": "number"
+    },
+    "GameSaveData": {
+      "meta": "GameSaveMeta",
+      "player": "PlayerState",
+      "world": "WorldState",
+      "npcs": "NPCState[]",
+      "eventLog": "EventLogEntry[]",
+      "dialogueHistory": "string[]",
+      "progress": "GameProgress",
+      "tempData": "Record<string, unknown> | undefined"
+    }
+  }
+}

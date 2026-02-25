@@ -27,26 +27,15 @@
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [
-      {
-        "type": "folder",
-        "value": "scripts"
-      },
-      {
-        "type": "folder",
-        "value": "src"
-      },
-      {
-        "type": "folder",
-        "value": "tests"
-      },
-      {
-        "type": "folder",
-        "value": "node_modules"
-      },
-      {
-        "type": "folder",
-        "value": "temp"
-      }
+      { "type": "folder", "value": ".git" },
+      { "type": "folder", "value": "dist" },
+      { "type": "folder", "value": "docs" },
+      { "type": "folder", "value": "node_modules" },
+      { "type": "folder", "value": "scripts" },
+      { "type": "folder", "value": "src" },
+      { "type": "folder", "value": "temp" },
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "ui-preview" }
     ],
     "include": []
   },

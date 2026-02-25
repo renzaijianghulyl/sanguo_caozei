@@ -84,6 +84,42 @@ CLOUD_ENV=cloud1-xxxx npm run build
 
 ---
 
+## 三之一、ADJUDICATION_API 从哪里获取？（本地体验测试用）
+
+跑 **体验测试**（`npm run playtest`）或非微信环境时，需要把裁决接口写成 HTTP 地址填到 `ADJUDICATION_API`。有两种常见方式：
+
+### 方式 A：本地起裁决服务（推荐，无需云开发 URL 化）
+
+项目里提供了本地裁决服务脚本，用你本机的 Node 直接跑云函数逻辑，API Key 用 `.env` 里的即可：
+
+1. 在项目根目录已配置 `.env`，且其中包含 `DEEPSEEK_API_KEY`（或 `HUNYUAN_API_KEY`）。
+2. 在一个终端里启动本地裁决服务：
+   ```bash
+   npm run adjudication-server
+   ```
+   服务会在 **http://localhost:3000** 监听，提供 `POST /intent/resolve`。
+3. 在 `.env` 中设置：
+   ```
+   ADJUDICATION_API=http://localhost:3000/intent/resolve
+   ```
+4. 保持该终端运行，在另一个终端执行 `npm run playtest` 即可。
+
+这样无需在微信云开发里开启 URL 化，也不用 access_token，适合本地开发与体验测试。
+
+### 方式 B：微信云函数 HTTP 触发 / URL 化
+
+若你希望体验测试直接请求云端（不跑本地服务），可给云函数开启 HTTP 触发：
+
+1. 登录 [微信公众平台](https://mp.weixin.qq.com/) → 进入你的小游戏
+2. 打开 **云开发** → 选择对应环境 → **云函数** → 点击 **adjudication**
+3. 在 **配置** 或 **详情** 中查找 **「HTTP 触发」** / **「URL 化」** 等选项（不同版本入口可能不同）
+4. 开启后，控制台会生成一个可公网访问的 URL（形如 `https://xxx.service.weixin.qq.com/...`）
+5. 将该 URL 填到 `.env` 的 `ADJUDICATION_API` 中
+
+注意：部分微信云开发环境可能未开放 HTTP 触发或需单独开通；若找不到该选项，用 **方式 A 本地裁决服务** 即可。
+
+---
+
 ## 四、验证部署
 
 1. 确保 `CLOUD_ENV` 已配置为你的环境 ID，构建并预览

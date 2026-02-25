@@ -15,7 +15,7 @@ export default defineConfig({
       "@utils": resolvePath("utils"),
       "@config": resolvePath("config"),
       "@agents": resolvePath("agents"),
-      "@data": path.resolve(__dirname, "data")
+      "@data": resolvePath("data")
     }
   }
 });

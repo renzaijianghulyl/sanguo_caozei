@@ -1,7 +1,53 @@
-import { ClientConfig, DEFAULT_NPC_STATE, DEFAULT_PLAYER_STATE, DEFAULT_WORLD_STATE, INITIAL_DIALOGUE } from "@config/index";
-import type { GameSaveData, NPCState, PlayerState, WorldState } from "@core/state";
+import {
+  ATTR_BASE,
+  ClientConfig,
+  DEFAULT_NPC_STATE,
+  DEFAULT_PLAYER_STATE,
+  DEFAULT_WORLD_STATE,
+  INITIAL_DIALOGUE
+} from "@config/index";
+import type {
+  AmbitionType,
+  GameSaveData,
+  NPCState,
+  PlayerAttributes,
+  PlayerState,
+  WorldState
+} from "@core/state";
+import { ensureBond } from "@core/RelationManager";
 
 const SAVE_VERSION = "1.0.0";
+
+/** 存档迁移：Bond 新字段、history_flags、active_titles 等，保证旧档可读 */
+function migrateSaveData(data: GameSaveData): GameSaveData {
+  const world = data.world;
+  const time = world?.time;
+  const worldTime = time ? { year: time.year, month: time.month ?? 1 } : { year: 184, month: 1 };
+
+  if (world && world.history_flags === undefined) {
+    (world as WorldState).history_flags = [];
+  }
+  if (data.player && (data.player as PlayerState & { active_titles?: string[] }).active_titles === undefined) {
+    (data.player as PlayerState & { active_titles: string[] }).active_titles = [];
+  }
+  if (data.history_logs === undefined) {
+    (data as GameSaveData).history_logs = [];
+  }
+  if (data.npcs?.length) {
+    data.npcs.forEach((npc) => ensureBond(npc, worldTime));
+  }
+  return data;
+}
+
+/** 修正旧存档中错误的开局年份文案：168年→184年，建安元年→中平元年 */
+function migrateDialogueYear(dialogueHistory: string[]): string[] {
+  return dialogueHistory.map((line) =>
+    line
+      .replace(/建[安宁]元年\s*（\s*公元\s*168\s*年\s*）/g, "中平元年（公元184年）")
+      .replace(/公元\s*168\s*年/g, "公元184年")
+      .replace(/168\s*年/g, "184年")
+  );
+}
 
 type StorageLike = {
   setItem(key: string, value: string): void;
@@ -91,7 +137,8 @@ function createDefaultSave(): GameSaveData {
       totalTurns: 0,
       lastEventId: "",
       lastEventTime: now
-    }
+    },
+    history_logs: []
   };
 }
 
@@ -121,6 +168,22 @@ export class SaveManager {
   }
 
   createNewSave(slot = 0, saveName = "新建存档"): GameSaveData {
+    return this.createNewSaveWithConfig(slot, saveName, null);
+  }
+
+  /**
+   * 创建新存档，支持自定义玩家配置（姓名、性别、属性）
+   */
+  createNewSaveWithConfig(
+    slot = 0,
+    saveName: string,
+    playerConfig: {
+      name: string;
+      gender: "male" | "female";
+      attrBonus: PlayerAttributes;
+      ambition?: AmbitionType;
+    } | null
+  ): GameSaveData {
     const data = cloneDeep(createDefaultSave());
     const playerId = this.generatePlayerId();
     const now = new Date().toISOString();
@@ -133,19 +196,36 @@ export class SaveManager {
       saveSlot: slot
     };
     data.player.id = playerId;
+
+    if (playerConfig) {
+      data.player.name = playerConfig.name.trim();
+      data.player.gender = playerConfig.gender;
+      if (playerConfig.ambition != null) data.player.ambition = playerConfig.ambition;
+      data.player.attrs = {
+        strength: ATTR_BASE + (playerConfig.attrBonus.strength ?? 0),
+        intelligence: ATTR_BASE + (playerConfig.attrBonus.intelligence ?? 0),
+        charm: ATTR_BASE + (playerConfig.attrBonus.charm ?? 0),
+        luck: ATTR_BASE + (playerConfig.attrBonus.luck ?? 0)
+      };
+    }
+
     this.currentSlot = slot;
     return data;
   }
 
   private optimizeSaveData(saveData: GameSaveData): GameSaveData {
-    const draft = cloneDeep(saveData);
-    if (draft.dialogueHistory.length > this.storageLimits.maxDialogueHistory) {
-      draft.dialogueHistory = draft.dialogueHistory.slice(-this.storageLimits.maxDialogueHistory);
-    }
-    if (draft.eventLog.length > this.storageLimits.maxEventLog) {
-      draft.eventLog = draft.eventLog.slice(-this.storageLimits.maxEventLog);
-    }
-    delete draft.tempData;
+    const draft: GameSaveData = {
+      ...saveData,
+      dialogueHistory:
+        saveData.dialogueHistory.length > this.storageLimits.maxDialogueHistory
+          ? saveData.dialogueHistory.slice(-this.storageLimits.maxDialogueHistory)
+          : saveData.dialogueHistory,
+      eventLog:
+        saveData.eventLog.length > this.storageLimits.maxEventLog
+          ? saveData.eventLog.slice(-this.storageLimits.maxEventLog)
+          : saveData.eventLog
+    };
+    delete (draft as GameSaveData & { tempData?: unknown }).tempData;
     return draft;
   }
 
@@ -248,7 +328,7 @@ export class SaveManager {
       if (data.meta.version !== SAVE_VERSION) {
         console.warn(`存档版本不匹配: ${data.meta.version} -> ${SAVE_VERSION}`);
       }
-      return data;
+      return migrateSaveData(data);
     } catch (error) {
       console.error("存档读取失败:", error);
       return null;
@@ -262,6 +342,17 @@ export class SaveManager {
       if (!data) {
         console.log(`存档槽位 ${targetSlot} 不存在`);
         return null;
+      }
+      data.dialogueHistory = migrateDialogueYear(data.dialogueHistory ?? []);
+      if (data.player) {
+        if (data.player.stamina == null) data.player.stamina = 80;
+        if (data.player.birth_year == null) data.player.birth_year = 169;
+      }
+      if (data.npcs?.length) {
+        data.npcs.forEach((n) => {
+          if (n.player_favor == null) n.player_favor = 0;
+          if (n.player_relation == null) n.player_relation = "";
+        });
       }
       this.currentSlot = targetSlot;
       return data;
@@ -352,6 +443,8 @@ export class SaveManager {
       attrs: Partial<PlayerState["attrs"]>;
       legend: number;
       reputation: number;
+      fame: number;
+      infamy: number;
       resources: Partial<PlayerState["resources"]>;
     }>
   ): GameSaveData {
@@ -372,6 +465,12 @@ export class SaveManager {
     if (typeof delta.reputation === "number") {
       const next = saveData.player.reputation + delta.reputation;
       saveData.player.reputation = Math.max(0, Math.min(100, next));
+    }
+    if (typeof delta.fame === "number") {
+      saveData.player.fame = Math.max(0, (saveData.player.fame ?? 0) + delta.fame);
+    }
+    if (typeof delta.infamy === "number") {
+      saveData.player.infamy = Math.max(0, (saveData.player.infamy ?? 0) + delta.infamy);
     }
     if (delta.resources) {
       Object.entries(delta.resources).forEach(([key, value]) => {
@@ -435,7 +534,7 @@ export class SaveManager {
     this.autoSaveTimer = setInterval(() => {
       const saveData = this.load(this.currentSlot);
       if (saveData) {
-        this.save(saveData, true);
+        setTimeout(() => this.save(saveData, true), 0);
       }
     }, this.autoSaveInterval * 1000);
     console.log(`自动保存已启动，间隔: ${this.autoSaveInterval} 秒`);
@@ -471,7 +570,7 @@ export class SaveManager {
       if (typeof slot === "number") {
         this.currentSlot = slot;
       }
-      return this.save(parsed, false);
+      return this.save(migrateSaveData(parsed), false);
     } catch (error) {
       console.error("导入存档失败:", error);
       return false;

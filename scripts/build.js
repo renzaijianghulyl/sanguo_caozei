@@ -84,6 +84,12 @@ async function buildOnce() {
     entryPoints,
     outdir: tempDir,
     bundle: true,
+    alias: {
+      "@data/sanguoDb": path.join(projectRoot, "src", "data", "sanguoDb", "index.ts"),
+      "@data/sanguoDb/timeline": path.join(projectRoot, "src", "data", "sanguoDb", "timeline.ts"),
+      "@data/bond": path.join(projectRoot, "src", "data", "bond", "index.ts"),
+      "@data/bond/types": path.join(projectRoot, "src", "data", "bond", "types.ts")
+    },
     format: "cjs",
     platform: "neutral",
     target: ["es2017"],
@@ -102,6 +108,10 @@ async function run() {
       entryPoints,
       outdir: tempDir,
       bundle: true,
+      alias: {
+        "@data/sanguoDb": path.join(projectRoot, "src", "data", "sanguoDb", "index.ts"),
+        "@data/sanguoDb/timeline": path.join(projectRoot, "src", "data", "sanguoDb", "timeline.ts")
+      },
       format: "cjs",
       platform: "neutral",
       target: ["es2017"],
