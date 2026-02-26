@@ -1,6 +1,6 @@
 /**
- * 叙事多样性引擎：关键词去重堆栈、负向约束注入、视角强制切换。
- * 用于缓解长线叙事中的文案重复（如留白测试中的「炭火」「噼啪」「静坐」复读）。
+ * 叙事多样性引擎：关键词去重堆栈、负向约束注入、视角强制切换、战斗/审问套话去重。
+ * 用于缓解长线叙事中的文案重复（如留白测试中的「炭火」「噼啪」复读；战斗审问中的「刀锋抵喉」「喉结滚动」「颤声道」）。
  */
 import {
   NARRATIVE_DIVERSITY_LOOKBACK_ROUNDS,
@@ -83,4 +83,63 @@ export function buildPerspectiveSwitchHint(dialogueHistory: string[] | undefined
   const allThirdPerson = systemLines.every((line) => !hasFirstPersonOrInnerMonologue(line));
   if (!allThirdPerson) return undefined;
   return "【视角切换】前几轮均为第三人称客观描写，本回合请切换为「第一人称心理活动」或「纯感官（嗅觉/听觉/温觉）白描」，避免连续客观叙述。可写（我……）或从触觉/气味/声音等单一感官切入。";
+}
+
+/** 战斗/审问场景常见套话，重复使用易使玩家疲劳；检测到近期出现时注入负向约束 */
+const COMBAT_INTERROGATION_CLICHES = [
+  "刀锋抵喉",
+  "喉结滚动",
+  "颤声道",
+  "颤声说",
+  "冷汗",
+  "瞳孔骤缩",
+  "剑指咽喉",
+  "刀刃架颈",
+  "刀架",
+  "架在颈",
+  "声音发颤",
+  "浑身发抖",
+  "面如土色",
+  "脸色煞白",
+  "寒光一闪",
+  "利刃"
+];
+
+const COMBAT_INTERROGATION_LOOKBACK = 5;
+const COMBAT_INTERROGATION_ALTERNATIVES =
+  "可改用：肢体僵硬、呼吸急促、目光闪烁、嗓音发紧、指节发白、步步后退、屏息、咬牙、喉头发紧、脊背发凉、掌心沁汗等多样化描写。";
+
+/**
+ * 检测最近 N 轮系统叙事中是否出现战斗/审问套话，返回已出现的短语列表。
+ */
+export function getUsedCombatInterrogationClichés(
+  dialogueHistory: string[] | undefined,
+  lookback: number = COMBAT_INTERROGATION_LOOKBACK
+): string[] {
+  if (!dialogueHistory?.length) return [];
+  const systemLines = dialogueHistory
+    .filter((line) => !/^你[：:]/.test(line.trim()))
+    .slice(-lookback);
+  const text = systemLines.join("");
+  const used: string[] = [];
+  for (const phrase of COMBAT_INTERROGATION_CLICHES) {
+    if (text.includes(phrase)) used.push(phrase);
+  }
+  return used;
+}
+
+/**
+ * 当本回合为战斗/审问类意图时，返回「套话去重」指令：
+ * 若近期叙事中已出现套话，则严禁本回合再次使用并给出替代写法；否则仅做软性提醒。
+ */
+export function buildCombatInterrogationDiversityInstruction(
+  dialogueHistory: string[] | undefined,
+  isCombatOrInterrogationIntent: boolean
+): string | undefined {
+  if (!isCombatOrInterrogationIntent) return undefined;
+  const used = getUsedCombatInterrogationClichés(dialogueHistory);
+  if (used.length > 0) {
+    return `【战斗/审问·套话去重】近期叙事中已出现「${used.join("」「")}」等表述，本回合严禁再次使用。${COMBAT_INTERROGATION_ALTERNATIVES}`;
+  }
+  return `【战斗/审问·叙事多样】本回合为战斗或审问类场景，请避免反复使用「刀锋抵喉」「喉结滚动」「颤声道」「冷汗」「瞳孔骤缩」等常见套话。${COMBAT_INTERROGATION_ALTERNATIVES}`;
 }

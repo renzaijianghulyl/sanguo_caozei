@@ -76,6 +76,20 @@ export function getRecentHistoryLogs(saveData: GameSaveData | null, n: number): 
   return saveData.history_logs.slice(-n);
 }
 
+/** 将大事记格式化为玩家生平文案（按年/月排序，供游戏结束界面展示） */
+export function formatLifeSummary(saveData: GameSaveData | null): string {
+  if (!saveData?.history_logs?.length) return "";
+  const logs = [...saveData.history_logs].sort(
+    (a, b) => (a.year - b.year) || ((a.month ?? 1) - (b.month ?? 1))
+  );
+  const lines = logs.map((e) => {
+    const era = getEraLabel(e.year);
+    const monthStr = e.month != null ? `· ${getMonthNameForDisplay(e.month)}` : "";
+    return `${era}${monthStr}　${e.text}`;
+  });
+  return lines.join("\n");
+}
+
 /** 关键记忆标签：玩家改变非史实 NPC 命运等时写入，供 50 轮后联觉唤醒 */
 export function getCrucialMemoryTags(saveData: GameSaveData | null): string[] {
   if (!saveData?.history_logs?.length) return [];

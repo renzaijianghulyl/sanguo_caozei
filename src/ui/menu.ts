@@ -11,7 +11,7 @@ const HISTORY_BTN_WIDTH = 52;
 
 /** 状态栏第 0 行高度（仅「系统」按钮，左上角） */
 export const STATUS_ROW0_HEIGHT = 36;
-/** 状态栏第 1 行高度（时间+地点+体金粮：单行或两行，胶囊下全宽） */
+/** 状态栏第 1 行高度（时间+地点+行动力/健康度/金钱/粮草：单行或两行，胶囊下全宽） */
 export const STATUS_ROW1_HEIGHT = 48;
 const STATUS_MENU_BTN_WIDTH = 48;
 const STATUS_MENU_BTN_HEIGHT = 32;

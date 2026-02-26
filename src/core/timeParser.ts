@@ -114,18 +114,8 @@ export function isLocationSwitchIntent(intent: string): boolean {
 }
 
 /**
- * 解析本回合动作的体力消耗值。操练、搜山、夜探、夜袭等虽可能 time_passed 较小，但消耗较高；
- * 供 preAdjudicator 判定体力不足时强制「勉强完成」或「体力不支倒地」。
+ * 内测阶段：每回合固定消耗 1 点行动力；正式上线后可恢复按意图区分消耗，不足时引导看广告补充。
  */
-export function getStaminaCost(intent: string): number {
-  const t = intent.trim();
-  if (
-    /操练|搜山|夜探|整训|夜袭|潜至|强攻|登城|擒将|审问|整备兵马|率队|伏兵|迎头痛击|攻城|潜行|探查敌情|率轻骑|率部/.test(
-      t
-    )
-  )
-    return 30;
-  if (/行军|出征|进军|赶制|督战|巡营/.test(t)) return 18;
-  if (parseTimeCost(t) > 0) return 10;
-  return 5;
+export function getStaminaCost(_intent: string): number {
+  return 1;
 }

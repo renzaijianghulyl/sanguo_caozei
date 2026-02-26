@@ -10,7 +10,7 @@ import {
 } from "@config/index";
 import { resolveAspiration } from "./aspirationParser";
 import { bootstrapSanguoDb } from "../data/sanguoDb";
-import { processPlayerAction } from "@core/actionProcessor";
+import { handlePlayerAction } from "@core/actionHandler";
 import {
   buildAdjudicationRequest,
   applyTypewriterCompletion as applyTypewriterCompletionFlow,
@@ -23,10 +23,12 @@ import {
   manualSave as lifecycleManualSave,
   onAppHide as lifecycleOnAppHide
 } from "./lifecycle";
+import { formatLifeSummary } from "@core/historyLog";
 import {
   getLocalIntentType,
   getLastPlayerIntent,
-  type LocalIntentType
+  getMetaRefusalMessage,
+  isRetirementIntent
 } from "./localIntents";
 import type { GameSaveData, PlayerAttributes, PlayerState, WorldState } from "@core/state";
 import { clearInput, createInputState, setInputValue, setKeyboardVisible } from "@ui/input";
@@ -42,6 +44,7 @@ import type { RenderState } from "@ui/renderer";
 import {
   getActionGuideChipRects,
   getAttrHelpButtonRect,
+  getGameOverRestartRect,
   invalidateDialogueCache,
   lastDialogueTotalHeight,
   renderScreen
@@ -52,6 +55,8 @@ import {
 } from "@ui/menu";
 import { getSuggestedActions } from "../data/actionSuggestions";
 import { createSplashLayout, renderSplash } from "@ui/splash";
+import { getPrivacyAgreed, setPrivacyAgreed } from "@services/storage/privacyConsent";
+import { drawPrivacyViewModal, getPrivacyViewModalCloseButtonRect } from "@ui/privacyModal";
 import { saveManager } from "@services/storage/saveManager";
 import { appendDialogue, removeLast } from "@utils/dialogueBuffer";
 import {
@@ -85,6 +90,14 @@ import {
   recordSanitizeFailure,
   getLatestFeedbackSnapshot
 } from "@services/security/feedbackLogger";
+import {
+  reportAnomaly,
+  buildSnapshotSummaryFromSave,
+  startSession,
+  resetSession,
+  reportPotentialChurnIfNeeded,
+  getLastSystemNarrative
+} from "@services/analytics/wechatEvents";
 
 export type CanvasCtx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
 export type TouchEvent = { touches?: Array<{ x: number; y: number }> };
@@ -127,8 +140,8 @@ interface GameRuntime {
   touchStartY: number;
   touchStartScroll: number;
   isDialogueScrollActive: boolean;
-  /** 行动引导槽：3 个可选动作，裁决后更新 */
-  suggestedActions: string[];
+  /** 行动引导槽：3 个可选动作，裁决后更新；含 is_aspiration_focused 供志向高亮 */
+  suggestedActions: Array<{ text: string; is_aspiration_focused: boolean }>;
   /** 是否已对开场长文案做过「从顶部显示」的校正，避免重复把用户拉回顶部 */
   appliedInitialDialogueScrollTop?: boolean;
   /** 属性说明弹窗是否显示（点击属性说明按钮或输入「属性说明」时为 true） */
@@ -139,8 +152,14 @@ interface GameRuntime {
   yearChangeFlashUntil?: number;
   /** 生平回顾弹窗是否显示 */
   historyModalVisible?: boolean;
-  /** 状态栏菜单（生平/重新开始）是否展开 */
-  statusMenuVisible?: boolean;
+  /** 健康度≤0 或殒命时设置，用于显示游戏结束覆盖层 */
+  gameOverReason?: string;
+  /** 游戏结束时的玩家生平文案，用于结束界面展示 */
+  gameOverLifeSummary?: string;
+  /** 首页：是否已勾选隐私协议（可点击切换） */
+  splashPrivacyChecked?: boolean;
+  /** 首页：是否正在显示「隐私和数据声明」弹窗（点击链接打开） */
+  splashPrivacyModalVisible?: boolean;
 }
 
 const runtime: GameRuntime = {
@@ -211,7 +230,11 @@ function pointInRect(
 function render(): void {
   if (!runtime.ctx) return;
   if (runtime.phase === "splash" && runtime.splashLayout) {
-    renderSplash(runtime.ctx, runtime.splashLayout);
+    if (runtime.splashPrivacyModalVisible) {
+      drawPrivacyViewModal(runtime.ctx, runtime.screenWidth, runtime.screenHeight);
+    } else {
+      renderSplash(runtime.ctx, runtime.splashLayout, runtime.splashPrivacyChecked ?? false);
+    }
     return;
   }
   if (runtime.phase === "characterCreation") {
@@ -238,14 +261,15 @@ function render(): void {
     renderState.dialogueScrollOffset = runtime.dialogueScrollOffset;
     renderState.isAdjudicating = runtime.phase === "playing" ? runtime.isAdjudicating : false;
     renderState.suggestedActions =
-      runtime.phase === "aspirationSetting" ? ["输入你的愿望并发送"] : runtime.suggestedActions;
+      runtime.phase === "aspirationSetting"
+        ? [{ text: "输入你的愿望并发送", is_aspiration_focused: false }]
+        : runtime.suggestedActions;
     renderState.typingState = typewriter?.getState() ?? null;
     renderState.attrsModalVisible = runtime.attrsModalVisible ?? false;
     renderState.attrsModalContent =
       runtime.attrsModalVisible
         ? [
             ATTR_EXPLANATIONS.strength,
-            ATTR_EXPLANATIONS.intelligence,
             ATTR_EXPLANATIONS.charm,
             ATTR_EXPLANATIONS.luck,
             LEGEND_EXPLANATION
@@ -257,6 +281,8 @@ function render(): void {
     renderState.historyModalVisible = runtime.historyModalVisible ?? false;
     renderState.historyLogs = runtime.currentSaveData?.history_logs ?? [];
     renderState.statusMenuVisible = runtime.statusMenuVisible ?? false;
+    renderState.gameOverReason = runtime.gameOverReason;
+    renderState.gameOverLifeSummary = runtime.gameOverLifeSummary;
     const hasUserSentOnce = runtime.dialogueHistory.some(
       (e) => e.startsWith("你：") || e.startsWith("你说：")
     );
@@ -305,6 +331,13 @@ function autoSave(): void {
 
 /** 切出时立即存档，供 wx.onHide 调用 */
 export function onAppHide(): void {
+  if (runtime.currentSaveData && runtime.dialogueHistory) {
+    const lastIntent = getLastPlayerIntent(runtime.dialogueHistory) ?? "";
+    const summary = buildSnapshotSummaryFromSave(runtime.currentSaveData, lastIntent, {
+      lastNarrativePreview: getLastSystemNarrative(runtime.dialogueHistory)
+    });
+    reportPotentialChurnIfNeeded(summary);
+  }
   lifecycleOnAppHide(runtime, saveManager);
 }
 
@@ -316,8 +349,13 @@ function updateSuggestedActions(): void {
   const region = runtime.currentSaveData.player?.location?.region ?? "";
   const scene = runtime.currentSaveData.player?.location?.scene ?? "";
   const stamina = runtime.currentSaveData.player?.stamina;
-  const [a, b] = getSuggestedActions(region, scene, stamina);
-  runtime.suggestedActions = [a, b];
+  const [a, b] = getSuggestedActions(region, scene, stamina, {
+    saveData: runtime.currentSaveData
+  });
+  runtime.suggestedActions = [
+    { text: a, is_aspiration_focused: false },
+    { text: b, is_aspiration_focused: false }
+  ];
 }
 
 /** 单一数据源：对话权威在 currentSaveData.dialogueHistory，此处将 runtime 同步为副本 */
@@ -327,6 +365,29 @@ function syncDialogueToRuntime(): void {
     runtime.currentSaveData.dialogueHistory.length > 0
       ? [...runtime.currentSaveData.dialogueHistory]
       : [...INITIAL_DIALOGUE];
+}
+
+/**
+ * 追加对话（单一写入路径）：有 saveData 时写 saveData 并 sync，否则写 runtime.dialogueHistory。
+ * 禁止 elsewhere 直接 push 到 runtime.dialogueHistory 当存在 currentSaveData 时。
+ */
+function appendDialogueAndSync(content: string | string[]): void {
+  if (runtime.currentSaveData) {
+    saveManager.addDialogueHistory(runtime.currentSaveData, content);
+    syncDialogueToRuntime();
+  } else {
+    appendDialogue(runtime.dialogueHistory, content);
+  }
+}
+
+/** 移除最后一条对话（与 appendDialogueAndSync 配套，用于手动存档 5s 后移除提示、dropWaitingPlaceholder） */
+function removeLastAndSync(): void {
+  if (runtime.currentSaveData?.dialogueHistory?.length) {
+    runtime.currentSaveData.dialogueHistory.pop();
+    syncDialogueToRuntime();
+  } else {
+    removeLast(runtime.dialogueHistory);
+  }
 }
 
 function updateGameDataFromSave(): void {
@@ -362,7 +423,7 @@ function getRandomWaitingMessage(): string {
 function dropWaitingPlaceholder(): void {
   const last = runtime.dialogueHistory.at(-1);
   if (last && WAITING_MESSAGES.includes(last)) {
-    removeLast(runtime.dialogueHistory);
+    removeLastAndSync();
   }
 }
 
@@ -442,7 +503,18 @@ function handleAdjudicationResult(
     applyTypewriterCompletion: applyTypewriterCompletionFlow,
     completionContext: getTypewriterCompletionContext(),
     sanitizeNarrative,
-    recordSanitizeFailure
+    recordSanitizeFailure,
+    onGameOver: (reason, lifeSummary) => {
+      runtime.gameOverReason = reason;
+      runtime.gameOverLifeSummary = lifeSummary ?? "";
+      const msg = `【游戏结束】${reason}，所有游戏终止。请重新开始。`;
+      appendDialogueAndSync(msg);
+      if (lifeSummary) {
+        appendDialogueAndSync("【玩家生平】");
+        appendDialogueAndSync(lifeSummary);
+      }
+      render();
+    }
   };
   handleAdjudicationResultFlow(response, ctx);
 }
@@ -455,7 +527,7 @@ function simulateAdjudication(intent: string): void {
         const text = result.allowed && result.text ? result.text : result.reason ?? "内容暂时不可用";
         if (runtime.currentSaveData) {
           saveManager.updatePlayerAttributes(runtime.currentSaveData, {
-            attrs: { intelligence: 1 },
+            attrs: { charm: 1 },
             reputation: 3
           });
           autoSave();
@@ -479,22 +551,22 @@ const LEGEND_EXPLANATION =
   "传奇：在剧情中建立功业后获得，代表你在乱世中的名望与影响力。传奇越高，越易获得诸侯重视与百姓拥戴。";
 
 export type { LocalIntentType } from "./localIntents";
-export { getLocalIntentType, getLastPlayerIntent } from "./localIntents";
+export { getLocalIntentType, getLastPlayerIntent, getMetaRefusalMessage } from "./localIntents";
 
 async function tryHandleLocalIntent(intent: string): Promise<boolean> {
   const type = getLocalIntentType(intent);
   if (!type) return false;
   if (type === "help") {
-    appendDialogue(runtime.dialogueHistory, [
+    appendDialogueAndSync([
       "【指令提示】直接输入以下命令，无需调用裁决：",
       "• 存档 / 保存 / save — 手动保存进度",
       "• 读档 / 载入 / load — 加载最新存档",
       "• 重试 / retry — 再次发送上一条意图（裁决失败时可使用）",
-      "• 属性 / 属性说明 — 查看武力、智力、魅力、运气、传奇的含义",
+      "• 属性 / 属性说明 — 查看武力、魅力、运气、传奇的含义",
       "• 你是谁 / about — 了解游戏",
       "• 广告 / 福利 — 观看激励广告",
       "• 反馈 / feedback — 记录最近错误快照（遇逻辑异常时使用）",
-      "【玩法】输入剧情意图（如「前往洛阳」「打听消息」「投靠曹操」）可推进故事，武力、智力等属性会影响剧情走向。"
+      "【玩法】输入剧情意图（如「前往洛阳」「打听消息」「投靠曹操」）可推进故事，武力、魅力等属性会影响剧情走向。"
     ]);
     render();
     scheduleScrollToBottom();
@@ -511,8 +583,7 @@ async function tryHandleLocalIntent(intent: string): Promise<boolean> {
   }
   if (type === "load") {
     const loaded = loadLatestSave();
-    appendDialogue(
-      runtime.dialogueHistory,
+    appendDialogueAndSync(
       loaded ? "【提示】最新存档已加载。" : "【提示】暂无可用存档。"
     );
     render();
@@ -520,14 +591,14 @@ async function tryHandleLocalIntent(intent: string): Promise<boolean> {
     return true;
   }
   if (type === "about") {
-    appendDialogue(runtime.dialogueHistory, "我是一名负责主持冒险的军机参谋，随时记录你的每一次抉择。");
+    appendDialogueAndSync("我是一名负责主持冒险的军机参谋，随时记录你的每一次抉择。");
     render();
     scheduleScrollToBottom();
     return true;
   }
   if (type === "ad") {
     requestRewardedAd("user-request");
-    appendDialogue(runtime.dialogueHistory, "广告加载中，完成观看可获得额外资源奖励。");
+    appendDialogueAndSync("广告加载中，完成观看可获得额外资源奖励。");
     render();
     scheduleScrollToBottom();
     return true;
@@ -539,13 +610,12 @@ async function tryHandleLocalIntent(intent: string): Promise<boolean> {
         snapshot.type === "adjudication_failure"
           ? `【反馈】已记录最近一次裁决失败（${snapshot.error}），快照可上传至服务器。`
           : `【反馈】已记录最近一次内容审核失败，快照可上传至服务器。`;
-      appendDialogue(runtime.dialogueHistory, msg);
+      appendDialogueAndSync(msg);
       if (typeof wx !== "undefined" && wx.showToast) {
         wx.showToast({ title: "反馈已记录", icon: "none" });
       }
     } else {
-      appendDialogue(
-        runtime.dialogueHistory,
+      appendDialogueAndSync(
         "【反馈】暂无错误记录。若遇逻辑异常，请先复现问题再输入「反馈」。"
       );
     }
@@ -556,7 +626,7 @@ async function tryHandleLocalIntent(intent: string): Promise<boolean> {
   if (type === "retry") {
     const lastIntent = getLastPlayerIntent(runtime.dialogueHistory);
     if (!lastIntent) {
-      appendDialogue(runtime.dialogueHistory, "【提示】暂无上一条意图可重试，请先输入一次行动。");
+      appendDialogueAndSync("【提示】暂无上一条意图可重试，请先输入一次行动。");
       render();
       scheduleScrollToBottom();
       return true;
@@ -566,6 +636,12 @@ async function tryHandleLocalIntent(intent: string): Promise<boolean> {
     setKeyboardVisible(runtime.input, false);
     render();
     await submitIntentForAdjudication(lastIntent, true);
+    return true;
+  }
+  if (type === "meta") {
+    appendDialogueAndSync(getMetaRefusalMessage());
+    render();
+    scheduleScrollToBottom();
     return true;
   }
   return false;
@@ -658,7 +734,8 @@ export function initGame(): GameInitResult {
   runtime.splashLayout = createSplashLayout(
     runtime.screenWidth,
     runtime.screenHeight,
-    systemInfo.safeAreaTop ?? 0
+    systemInfo.safeAreaTop ?? 0,
+    systemInfo.safeAreaBottom ?? 0
   );
   runtime.creationLayout = createCharacterCreationLayout(
     runtime.screenWidth,
@@ -758,13 +835,48 @@ export function handleTouch(event: TouchEvent): void {
   }
 
   if (runtime.phase === "splash") {
-    runtime.phase = runtime.currentSaveData ? "playing" : "characterCreation";
-    if (runtime.phase === "characterCreation") {
-      runtime.currentSaveData = null;
-      runtime.dialogueHistory = [...INITIAL_DIALOGUE];
+    if (runtime.splashPrivacyModalVisible) {
+      const closeRect = getPrivacyViewModalCloseButtonRect(runtime.screenWidth, runtime.screenHeight);
+      if (pointInRect(closeRect, x, y)) {
+        runtime.splashPrivacyModalVisible = false;
+        invalidateDialogueCache();
+        render();
+      }
+      return;
     }
-    invalidateDialogueCache();
-    render();
+    const layout = runtime.splashLayout!;
+    if (pointInRect(layout.startButtonRect, x, y)) {
+      if (!(runtime.splashPrivacyChecked ?? false)) {
+        if (typeof wx !== "undefined" && wx.showToast) {
+          wx.showToast({
+            title: "您必须勾选《隐私和数据声明》，才能开始游戏",
+            icon: "none",
+            duration: 2500
+          });
+        }
+        return;
+      }
+      setPrivacyAgreed(true);
+      runtime.phase = runtime.currentSaveData ? "playing" : "characterCreation";
+      if (runtime.phase === "playing") startSession();
+      if (runtime.phase === "characterCreation") {
+        runtime.currentSaveData = null;
+        runtime.dialogueHistory = [...INITIAL_DIALOGUE];
+      }
+      invalidateDialogueCache();
+      render();
+      return;
+    }
+    if (pointInRect(layout.checkboxRect, x, y)) {
+      runtime.splashPrivacyChecked = !(runtime.splashPrivacyChecked ?? false);
+      render();
+      return;
+    }
+    if (pointInRect(layout.privacyLinkRect, x, y)) {
+      runtime.splashPrivacyModalVisible = true;
+      render();
+      return;
+    }
     return;
   }
 
@@ -781,6 +893,17 @@ export function handleTouch(event: TouchEvent): void {
   if (runtime.phase === "playing" && runtime.attrsModalVisible) {
     runtime.attrsModalVisible = false;
     render();
+    return;
+  }
+  if (runtime.phase === "playing" && runtime.gameOverReason && runtime.layout) {
+    const rect = getGameOverRestartRect(
+      runtime.screenWidth,
+      runtime.screenHeight,
+      runtime.gameOverLifeSummary
+    );
+    if (pointInRect(rect, x, y)) {
+      restartGame();
+    }
     return;
   }
   if (runtime.phase === "playing" && runtime.historyModalVisible) {
@@ -871,11 +994,19 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
 
   runtime.isAdjudicating = true;
   let payload = buildAdjudicationRequest(runtime.currentSaveData, trimmed);
-  payload = processPlayerAction(payload);
+  payload = handlePlayerAction(payload, runtime.currentSaveData);
+  if (payload.event_context?.consecutive_level1_count != null && runtime.currentSaveData?.tempData) {
+    (runtime.currentSaveData.tempData as Record<string, unknown>).consecutive_level1_count =
+      payload.event_context.consecutive_level1_count;
+  }
   const apiUrl = ClientConfig.ADJUDICATION_API;
   const isLocalhost = /localhost|127\.0\.0\.1/.test(apiUrl);
   const isDevice = typeof wx !== "undefined" && ["android", "ios"].includes(String(wx.getSystemInfoSync?.()?.platform ?? "").toLowerCase());
   const useCloud = Boolean(typeof wx !== "undefined" && (wx as { cloud?: { callFunction?: unknown } }).cloud?.callFunction && ClientConfig.CLOUD_ENV);
+
+  if (ClientConfig.DEBUG && payload.event_context) {
+    console.log("[adjudication] request event_context（可复制到控制台查看）:", JSON.stringify(payload.event_context, null, 2));
+  }
 
   if (isLocalhost && isDevice && !useCloud) {
     dropWaitingPlaceholder();
@@ -886,6 +1017,15 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
 
   try {
     const response = await callAdjudication(payload);
+    if (ClientConfig.DEBUG && response.result) {
+      const nar = response.result.narrative;
+      console.log(
+        "[adjudication] response result.narrative 类型:",
+        typeof nar,
+        "前 300 字:",
+        typeof nar === "string" ? nar.slice(0, 300) : JSON.stringify(nar).slice(0, 300)
+      );
+    }
     dropWaitingPlaceholder();
     handleAdjudicationResult(response, payload);
   } catch (error) {
@@ -894,8 +1034,8 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
     runtime.targetScrollOffset = null;
     recordAdjudicationFailure(payload, error);
     const errMsg = error instanceof Error ? error.message : "裁决请求失败";
-    appendDialogue(
-      runtime.dialogueHistory,
+    // 裁决失败/超时的唯一提示与重试入口：此处统一处理，用户可输入「重试」再次发送上一条意图
+    appendDialogueAndSync(
       `裁决失败：${errMsg}（可输入「重试」再次发送上一条意图）`
     );
     render();
@@ -934,6 +1074,7 @@ export async function submitInput(): Promise<void> {
     hideKeyboard();
     setKeyboardVisible(runtime.input, false);
     runtime.phase = "playing";
+    startSession();
     updateGameDataFromSave();
     invalidateDialogueCache();
     runIntroSequence();
@@ -952,9 +1093,26 @@ export async function submitInput(): Promise<void> {
     return;
   }
 
+  if (isRetirementIntent(trimmed) && runtime.currentSaveData) {
+    saveManager.addDialogueHistory(runtime.currentSaveData, [`你：${trimmed}`]);
+    syncDialogueToRuntime();
+    clearInput(runtime.input);
+    hideKeyboard();
+    setKeyboardVisible(runtime.input, false);
+    const lifeSummary = formatLifeSummary(runtime.currentSaveData);
+    runtime.gameOverReason = "退隐江湖";
+    runtime.gameOverLifeSummary = lifeSummary;
+    appendDialogueAndSync("【游戏结束】退隐江湖，所有游戏终止。请重新开始。");
+    appendDialogueAndSync("【玩家生平】");
+    appendDialogueAndSync(lifeSummary || "（暂无大事记）");
+    render();
+    scheduleScrollToBottom();
+    return;
+  }
+
   const auditResult = await ensurePlayerInputSafe(trimmed);
   if (!auditResult.allowed) {
-    appendDialogue(runtime.dialogueHistory, auditResult.reason ?? "输入未通过安全审核");
+    appendDialogueAndSync(auditResult.reason ?? "输入未通过安全审核");
     render();
     scheduleScrollToBottom();
     return;
@@ -982,6 +1140,12 @@ function promptRestartConfirm(): void {
 }
 
 export function restartGame(): void {
+  const lastIntent = getLastPlayerIntent(runtime.dialogueHistory) ?? "";
+  const churnSummary = buildSnapshotSummaryFromSave(runtime.currentSaveData, lastIntent, {
+    lastNarrativePreview: getLastSystemNarrative(runtime.dialogueHistory)
+  });
+  reportAnomaly("user_restart", churnSummary);
+  resetSession();
   clearInput(runtime.input);
   setKeyboardVisible(runtime.input, false);
   hideKeyboard();
@@ -995,24 +1159,16 @@ export function restartGame(): void {
   runtime.targetScrollOffset = null;
   runtime.appliedInitialDialogueScrollTop = false;
   runtime.attrsModalVisible = false;
+  runtime.gameOverReason = undefined;
+  runtime.gameOverLifeSummary = undefined;
   render();
 }
 
 function confirmCharacterCreation(): void {
   const form = runtime.creationForm;
-  const totalBonus = (["strength", "intelligence", "charm", "luck"] as const).reduce(
-    (s, k) => s + (form.attrBonus[k] ?? 0),
-    0
-  );
   if (!form.name.trim()) {
     if (typeof wx !== "undefined" && wx.showToast) {
       wx.showToast({ title: "请输入姓名", icon: "none" });
-    }
-    return;
-  }
-  if (totalBonus !== ATTR_BONUS_POINTS) {
-    if (typeof wx !== "undefined" && wx.showToast) {
-      wx.showToast({ title: `请分配完 ${ATTR_BONUS_POINTS} 点属性`, icon: "none" });
     }
     return;
   }
@@ -1094,7 +1250,7 @@ function handleCharacterCreationTouch(x: number, y: number): void {
       }
       return;
     }
-    const totalBonus = (["strength", "intelligence", "charm", "luck"] as const).reduce(
+    const totalBonus = (["strength", "charm", "luck"] as const).reduce(
       (s, k) => s + (runtime.creationForm.attrBonus[k] ?? 0),
       0
     );
@@ -1122,8 +1278,8 @@ function handleCharacterCreationTouch(x: number, y: number): void {
 
 export function manualSave(): void {
   lifecycleManualSave(runtime, saveManager, {
-    appendDialogue,
-    removeLast,
+    appendDialogue: (_h, content) => appendDialogueAndSync(content),
+    removeLast: () => removeLastAndSync(),
     render
   });
 }

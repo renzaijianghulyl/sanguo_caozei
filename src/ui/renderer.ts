@@ -122,8 +122,8 @@ export interface RenderState {
   dialogueTotalHeight?: number;
   /** 裁决请求进行中，输入区显示「发送中」并禁用发送按钮 */
   isAdjudicating?: boolean;
-  /** 行动引导槽：3 个可选动作，点击填入并发送 */
-  suggestedActions?: string[];
+  /** 行动引导槽：3 个可选动作，含志向高亮标记 */
+  suggestedActions?: Array<{ text: string; is_aspiration_focused: boolean }>;
   /** 打字机效果：正在逐字显示的叙事，点击可跳过 */
   typingState?: { fullText: string; displayedLen: number } | null;
   /** 属性说明弹窗：为 true 时显示，内容由 attrsModalContent 提供 */
@@ -145,6 +145,10 @@ export interface RenderState {
   inputHintText?: string;
   /** 玩家角色名，用于将「你：」气泡显示为「角色名：」 */
   playerName?: string;
+  /** 游戏终止原因（如意外殒命），非空时显示结束覆盖层与「重新开始」按钮 */
+  gameOverReason?: string;
+  /** 游戏结束时的玩家生平文案，结束界面中展示 */
+  gameOverLifeSummary?: string;
 }
 
 
@@ -165,6 +169,91 @@ export function renderScreen(state: RenderState): void {
   if (state.historyModalVisible && state.historyLogs) {
     drawHistoryModal(ctx, screenWidth, screenHeight, state.historyLogs);
   }
+  if (state.gameOverReason) {
+    drawGameOverOverlay(
+      ctx,
+      screenWidth,
+      screenHeight,
+      state.gameOverReason,
+      state.gameOverLifeSummary
+    );
+  }
+}
+
+/** 游戏终止覆盖层下「重新开始」按钮的矩形，供 gameApp 触摸检测；有生平文案时面板更高 */
+export function getGameOverRestartRect(
+  screenWidth: number,
+  screenHeight: number,
+  lifeSummary?: string
+): UIRect {
+  const panelMargin = Math.max(24, Math.round(screenWidth * 0.1));
+  const panelWidth = screenWidth - panelMargin * 2;
+  const baseHeight = 160;
+  const lifeSummaryHeight = lifeSummary?.trim()
+    ? Math.min(140, (lifeSummary.split("\n").length + 2) * 16)
+    : 0;
+  const panelHeight = baseHeight + lifeSummaryHeight;
+  const panelX = panelMargin;
+  const panelY = (screenHeight - panelHeight) / 2;
+  const btnX = panelX + (panelWidth - RESTART_BTN_WIDTH) / 2;
+  const btnY = panelY + panelHeight - RESTART_BTN_PAD - RESTART_BTN_HEIGHT;
+  return { x: btnX, y: btnY, width: RESTART_BTN_WIDTH, height: RESTART_BTN_HEIGHT };
+}
+
+function drawGameOverOverlay(
+  ctx: CanvasCtx,
+  screenWidth: number,
+  screenHeight: number,
+  reason: string,
+  lifeSummary?: string
+): void {
+  const panelMargin = Math.max(24, Math.round(screenWidth * 0.1));
+  const panelWidth = screenWidth - panelMargin * 2;
+  const baseHeight = 160;
+  const hasLife = lifeSummary?.trim();
+  const lifeSummaryHeight = hasLife ? Math.min(140, (lifeSummary!.split("\n").length + 2) * 16) : 0;
+  const panelHeight = baseHeight + lifeSummaryHeight;
+  const panelX = panelMargin;
+  const panelY = (screenHeight - panelHeight) / 2;
+  const panel: UIRect = { x: panelX, y: panelY, width: panelWidth, height: panelHeight };
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  ctx.fillRect(0, 0, screenWidth, screenHeight);
+  drawRoundedRect(ctx, panel, colors.panel, colors.panelBorder, radius.panel);
+
+  ctx.fillStyle = colors.warn;
+  ctx.font = "bold 18px 'PingFang SC', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("游戏结束", panelX + panelWidth / 2, panelY + 36);
+  ctx.fillStyle = colors.textSecondary;
+  ctx.font = "14px 'PingFang SC', sans-serif";
+  ctx.fillText(reason + "，请重新开始。", panelX + panelWidth / 2, panelY + 64);
+
+  if (hasLife) {
+    ctx.font = "12px 'PingFang SC', sans-serif";
+    ctx.fillStyle = colors.textMuted;
+    ctx.fillText("—— 生平 ——", panelX + panelWidth / 2, panelY + 90);
+    ctx.fillStyle = colors.textSecondary;
+    ctx.textAlign = "left";
+    const lines = lifeSummary!.split("\n").slice(0, 8);
+    const lineH = 14;
+    lines.forEach((line, i) => {
+      const y = panelY + 106 + i * lineH;
+      if (y < panelY + panelHeight - RESTART_BTN_PAD - RESTART_BTN_HEIGHT - 8) {
+        const truncated = line.length > 28 ? line.slice(0, 27) + "…" : line;
+        ctx.fillText(truncated, panelX + 12, y);
+      }
+    });
+    ctx.textAlign = "center";
+  }
+
+  const btnRect = getGameOverRestartRect(screenWidth, screenHeight, lifeSummary);
+  drawRoundedRect(ctx, btnRect, colors.accent, colors.accentChipBorder, radius.button);
+  ctx.fillStyle = colors.textPrimary;
+  ctx.font = "14px 'PingFang SC', sans-serif";
+  ctx.fillText("重新开始", btnRect.x + btnRect.width / 2, btnRect.y + btnRect.height / 2 + 5);
+  ctx.restore();
 }
 
 function drawBackground(ctx: CanvasCtx, width: number, height: number) {
@@ -238,7 +327,7 @@ function getSeason(month: number): string {
   return "冬";
 }
 
-/** 状态栏：第 0 行=左上角「系统」按钮，第 1 行=时间/地点/体金粮（胶囊下全宽），第 2 行=属性（全宽） */
+/** 状态栏：第 0 行=左上角「系统」按钮，第 1 行=时间/地点/行动力·健康度·金钱·粮草（胶囊下全宽），第 2 行=属性（全宽） */
 function drawStatusPanel(state: RenderState) {
   const { ctx, layout, playerAttributes, currentSaveData, worldTime } = state;
   const area = layout.statusPanel;
@@ -251,7 +340,8 @@ function drawStatusPanel(state: RenderState) {
   const w = currentSaveData?.world?.time;
   const gold = currentSaveData?.player?.resources?.gold ?? 0;
   const food = currentSaveData?.player?.resources?.food ?? 0;
-  const stamina = currentSaveData?.player?.stamina ?? 80;
+  const stamina = currentSaveData?.player?.stamina ?? 1000;
+  const health = currentSaveData?.player?.health ?? 100;
   const season = w ? getSeason(w.month) : "";
   const region = currentSaveData?.player?.location?.region ?? "";
   const scene = currentSaveData?.player?.location?.scene ?? "";
@@ -262,7 +352,7 @@ function drawStatusPanel(state: RenderState) {
   const monthStr = w ? getMonthNameForDisplay(w.month) : "";
   const timePart = w ? `【${eraStr}】${w.year}年·${season}·${monthStr}` : "";
   const locationPart = `${regionName} · ${sceneName}`;
-  const resourcePart = `体${stamina}　金${gold}　粮${food}`;
+  const resourcePart = `行动力${stamina}　健康度${health}　金钱${gold}　粮草${food}`;
   const seg = "　　　　    "; // 时间与地点之间留白（约为原两倍）
 
   const infoY = area.y + STATUS_ROW0_HEIGHT;
@@ -273,9 +363,11 @@ function drawStatusPanel(state: RenderState) {
   ctx.textAlign = "left";
   const line1 = [timePart, locationPart].filter(Boolean).join(seg);
   if (line1) ctx.fillText(line1, startX, infoY + 12);
-  // 「体/金/粮」与「【中平元年】」的「中」字左对齐：第二行起始 = 时间行起始 + 「【」宽度
+  // 「行动力/健康度/金钱/粮草」与「【中平元年】」的「中」字左对齐：第二行起始 = 时间行起始 + 「【」宽度
   const resourceX = timePart ? startX + ctx.measureText("【").width : startX;
+  ctx.fillStyle = colors.stats;
   ctx.fillText(resourcePart, Math.round(resourceX), infoY + 12 + lineH);
+  ctx.fillStyle = colors.textSecondary;
 
   const separatorY = area.y + STATUS_ROW0_HEIGHT + STATUS_ROW1_HEIGHT;
   ctx.strokeStyle = "rgba(148, 163, 184, 0.08)";
@@ -285,16 +377,15 @@ function drawStatusPanel(state: RenderState) {
   ctx.lineTo(area.x + area.width - pad, separatorY);
   ctx.stroke();
 
-  const labels = ["武力", "智力", "魅力", "运气", "传奇"];
+  const labels = ["武力", "魅力", "运气", "传奇"];
   const values = [
     playerAttributes.strength,
-    playerAttributes.intelligence,
     playerAttributes.charm,
     playerAttributes.luck,
     playerAttributes.legend
   ];
   const attrAreaW = area.width - pad * 2 - ATTR_HELP_ICON_SIZE - ATTR_ICON_GAP;
-  const colWidth = attrAreaW / 5;
+  const colWidth = attrAreaW / 4;
   const baseY = area.y + STATUS_ROW0_HEIGHT + STATUS_ROW1_HEIGHT + 4 + 18;
   ctx.font = "11px 'PingFang SC', sans-serif";
   labels.forEach((label, i) => {
@@ -610,30 +701,37 @@ function drawDialogueArea(state: RenderState) {
   }
 }
 
-/** 对话区底部：转圈图标 + 等待文案（入戏表述，避免「AI 生成」感） */
-const ADJUDICATING_LABEL = "局势推演中…";
+/** 对话区底部：动态转圈 + 带点点循环的等待文案 */
+const ADJUDICATING_LABEL_BASE = "局势推演中";
 
 function drawLoadingIndicator(ctx: CanvasCtx, area: UIRect): void {
   const centerX = area.x + area.width / 2;
   const centerY = area.y + area.height - 28;
-  const radius = 10;
+  const radius = 12;
   const t = Date.now() / 1000;
   const startAngle = t * Math.PI * 2;
   const endAngle = startAngle + Math.PI * 1.5;
 
   ctx.save();
   ctx.strokeStyle = colors.accent;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(centerX, centerY - 14, radius, startAngle, endAngle);
+  ctx.arc(centerX, centerY - 16, radius, startAngle, endAngle);
   ctx.stroke();
   ctx.restore();
 
+  const dotCycle = Math.floor((Date.now() / 400) % 4);
+  const dots = dotCycle === 0 ? "" : ".".repeat(dotCycle);
+  const label = ADJUDICATING_LABEL_BASE + dots;
+
+  const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 300);
+  ctx.globalAlpha = pulse;
   ctx.fillStyle = colors.textMuted;
   ctx.font = "12px 'PingFang SC', sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(ADJUDICATING_LABEL, centerX, centerY + 6);
+  ctx.fillText(label, centerX, centerY + 6);
+  ctx.globalAlpha = 1;
 }
 
 const SEND_BTN_WIDTH = sizes.sendBtnWidth;
@@ -656,7 +754,7 @@ function drawInputHint(state: RenderState): void {
   ctx.restore();
 }
 
-/** 行动引导槽：绘制 3 个可选动作芯片 */
+/** 行动引导槽：绘制 3 个可选动作芯片，志向相关用 accent 高亮 */
 function drawActionGuideSlot({
   ctx,
   layout,
@@ -674,12 +772,13 @@ function drawActionGuideSlot({
   const chipHeight = Math.max(40, area.height - pad * 2);
 
   ctx.font = "13px 'PingFang SC', sans-serif";
-  actions.slice(0, 3).forEach((text, i) => {
+  actions.slice(0, 3).forEach((item, i) => {
+    const text = item.text;
+    const isAspiration = item.is_aspiration_focused;
     const x = area.x + pad + i * (chipWidth + ACTION_CHIP_GAP);
     const y = area.y + pad;
     const rect: UIRect = { x, y, width: chipWidth, height: chipHeight };
     const disabled = !!isAdjudicating;
-    const isFirst = i === 0;
     if (disabled) {
       drawRoundedRect(ctx, rect, colors.chipDisabled, colors.panelBorder, radius.chip);
       ctx.globalAlpha = 0.6;
@@ -687,12 +786,12 @@ function drawActionGuideSlot({
       drawRoundedRect(
         ctx,
         rect,
-        isFirst ? "rgba(56, 189, 248, 0.18)" : colors.accentChip,
-        isFirst ? "rgba(56, 189, 248, 0.5)" : colors.accentChipBorder,
+        isAspiration ? "rgba(56, 189, 248, 0.18)" : colors.accentChip,
+        isAspiration ? "rgba(56, 189, 248, 0.5)" : colors.accentChipBorder,
         radius.chip
       );
     }
-    ctx.fillStyle = disabled ? colors.textMuted : isFirst ? colors.accent : colors.textSecondary;
+    ctx.fillStyle = disabled ? colors.textMuted : isAspiration ? colors.accent : colors.textSecondary;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const maxW = chipWidth - 12;
@@ -729,29 +828,29 @@ function drawActionGuideSlot({
   });
 }
 
-/** 供 gameApp 点击检测：行动引导槽最多 2 颗芯片的矩形 */
+/** 供 gameApp 点击检测：行动引导槽最多 3 颗芯片的矩形 */
 export function getActionGuideChipRects(
   layout: UILayout,
-  suggestedActions: string[]
+  suggestedActions: Array<{ text: string; is_aspiration_focused: boolean }>
 ): Array<{ rect: UIRect; text: string }> {
   const actions = suggestedActions ?? [];
   if (actions.length === 0) return [];
 
   const area = layout.actionGuideSlot;
   const pad = 6;
-  const chipCount = Math.min(2, actions.length);
+  const chipCount = Math.min(3, actions.length);
   const totalGap = (chipCount - 1) * ACTION_CHIP_GAP;
   const chipWidth = Math.max(64, (area.width - pad * 2 - totalGap) / chipCount);
   const chipHeight = Math.max(40, area.height - pad * 2);
 
-  return actions.slice(0, 2).map((text, i) => ({
+  return actions.slice(0, 3).map((item, i) => ({
     rect: {
       x: area.x + pad + i * (chipWidth + ACTION_CHIP_GAP),
       y: area.y + pad,
       width: chipWidth,
       height: chipHeight
     },
-    text
+    text: item.text
   }));
 }
 

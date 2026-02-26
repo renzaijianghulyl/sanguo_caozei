@@ -117,8 +117,10 @@ export interface PlayerState {
   reputation: number;
   resources: PlayerResources;
   location: PlayerLocation;
-  /** 体力，用于决策与行动消耗，0 时部分动作不可用 */
+  /** 行动力，用于决策与行动消耗；不足时动作判定为「勉强完成」或「体力不支倒地」。与健康度解耦 */
   stamina?: number;
+  /** 健康度 0～100，表示生理阻力；重伤/中毒/断粮/殒命会降低；≤0 时游戏终止 */
+  health?: number;
   /** 志向：统一三国 / 富甲天下，写入 SYSTEM_PROMPT 永久标签，驱动首段独白与内心戏 */
   ambition?: AmbitionType;
   /** 当前身份称号，根据志向与行为动态赋予，如「乱世奸雄」「货通天下」 */

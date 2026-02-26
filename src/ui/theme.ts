@@ -20,6 +20,8 @@ export const colors = {
   textPrimary: "#f8fafc",
   textSecondary: "#b8c5d6",
   textMuted: "#64748b",
+  /** 状态栏中行动力、健康度、金钱、粮草等数值信息，与正文区分 */
+  stats: "#b8a88a",
   accent: "#38bdf8",
   accentSoft: "rgba(56, 189, 248, 0.2)",
   accentChip: "rgba(56, 189, 248, 0.12)",

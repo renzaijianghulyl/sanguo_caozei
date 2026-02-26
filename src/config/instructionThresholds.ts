@@ -49,3 +49,11 @@ export const PHYSIOLOGY_STAMINA_BASE = 100;
 // ---------- 中长期记忆联觉唤醒 ----------
 /** 对话轮数超过此值才注入 memory_resonance（联觉唤醒） */
 export const MEMORY_RESONANCE_MIN_ROUNDS = 50;
+
+// ---------- 游戏结束条件 ----------
+/** 世界年份超过「开局年+60」则判定游戏结束（时代更迭） */
+export const GAME_OVER_WORLD_YEARS_FROM_START = 60;
+/** 世界开局基准年，用于计算 60 年上限 */
+export const GAME_OVER_WORLD_START_YEAR = 184;
+/** 世界年份达到此值则判定「三国归晋」游戏结束 */
+export const GAME_OVER_WORLD_YEAR_JIN = 280;

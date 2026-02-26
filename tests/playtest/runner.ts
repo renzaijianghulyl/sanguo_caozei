@@ -13,6 +13,7 @@ import {
 } from "./prompts";
 import { execSync } from "node:child_process";
 import { getNextIntent, getExperienceReport, type ExperienceReport } from "./testAIClient";
+import type { NextIntentResult } from "./testAIClient";
 
 const ADJUDICATION_API = process.env.ADJUDICATION_API;
 /** 提高轮次以支撑长线剧情（如 500 轮），不限制 token 时可设较大值 */
@@ -108,30 +109,67 @@ function buildStateSummary(saveData: GameSaveData, roundIndex: number): string {
   return `当前 ${year} 年 ${month} 月；所在地 ${region} ${scene}；已进行 ${roundIndex} 轮。`;
 }
 
+/** 调用测试 AI 获取下一意图，网络/超时异常时自动重试，减少长测中途挂掉 */
+async function getNextIntentWithRetry(
+  systemPrompt: string,
+  userPrompt: string,
+  progressTag: string,
+  maxRetries = 3
+): Promise<NextIntentResult> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await getNextIntent(systemPrompt, userPrompt);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetwork =
+        /fetch failed|Timeout|UND_ERR|ECONNREFUSED|连接超时|网络|ECONNRESET/.test(msg) ||
+        (err && typeof err === "object" && "code" in err && String((err as { code: string }).code).includes("ERR"));
+      if (!isNetwork || attempt === maxRetries) {
+        throw err;
+      }
+      console.log(`${progressTag}测试 AI 请求异常（${msg.slice(0, 50)}…），第 ${attempt}/${maxRetries} 次重试…`);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+  throw lastErr;
+}
+
 async function callAdjudication(payload: unknown): Promise<{ narrative?: string; suggested_actions?: string[] }> {
   const url = ADJUDICATION_API!.trim();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const bodyText = await res.text();
-    let detail = bodyText.slice(0, 300);
-    try {
-      const j = JSON.parse(bodyText) as { result?: { narrative?: string }; error?: string };
-      detail = j?.result?.narrative ?? j?.error ?? detail;
-    } catch {
-      // 非 JSON 时用原始片段
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const bodyText = await res.text();
+      let detail = bodyText.slice(0, 300);
+      try {
+        const j = JSON.parse(bodyText) as { result?: { narrative?: string }; error?: string };
+        detail = j?.result?.narrative ?? j?.error ?? detail;
+      } catch {
+        // 非 JSON 时用原始片段
+      }
+      throw new Error(`裁决 API 返回 ${res.status}: ${detail}`);
     }
-    throw new Error(`裁决 API 返回 ${res.status}: ${detail}`);
+    const data = (await res.json()) as { result?: { narrative?: string; suggested_actions?: string[] } };
+    const result = data?.result ?? {};
+    return {
+      narrative: result.narrative?.trim() || "（无叙事返回）",
+      suggested_actions: Array.isArray(result.suggested_actions) ? result.suggested_actions : []
+    };
+  } catch (err: unknown) {
+    const isRefused =
+      (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "ECONNREFUSED") ||
+      (err instanceof Error && (err.message.includes("ECONNREFUSED") || (err as { cause?: { code?: string } }).cause?.code === "ECONNREFUSED"));
+    const msg = isRefused
+      ? "无法连接裁决服务（" + ADJUDICATION_API?.trim() + "）。请先在另一终端运行 npm run adjudication-server，看到「裁决服务已启动」后再运行本测试。"
+      : err instanceof Error ? err.message : String(err);
+    throw new Error(msg);
   }
-  const data = (await res.json()) as { result?: { narrative?: string; suggested_actions?: string[] } };
-  const result = data?.result ?? {};
-  return {
-    narrative: result.narrative?.trim() || "（无叙事返回）",
-    suggested_actions: Array.isArray(result.suggested_actions) ? result.suggested_actions : []
-  };
 }
 
 export interface PlaytestResult {
@@ -144,6 +182,35 @@ export interface PlaytestResult {
 export async function runPlaytest(options?: PlaytestOptions): Promise<PlaytestResult> {
   if (!ADJUDICATION_API?.trim()) {
     throw new Error("请设置环境变量 ADJUDICATION_API（裁决接口地址）");
+  }
+
+  // 启动前预检：避免跑了几轮才发现连不上
+  const url = ADJUDICATION_API.trim();
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player_intent: "ping", save_data: {}, world_timeline: [] }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`裁决服务返回 ${res.status}: ${text.slice(0, 200)}`);
+    }
+  } catch (preErr: unknown) {
+    const isRefused =
+      preErr && typeof preErr === "object" && "code" in preErr && (preErr as { code: string }).code === "ECONNREFUSED";
+    const isAbort = preErr instanceof Error && preErr.name === "AbortError";
+    const msg =
+      isRefused || (preErr instanceof Error && preErr.message.includes("ECONNREFUSED"))
+        ? "无法连接裁决服务（" + url + "）。请先在另一终端运行 npm run adjudication-server，看到「裁决服务已启动」后再运行本测试。"
+        : isAbort
+          ? "裁决服务预检超时（5 秒）。请确认 npm run adjudication-server 已启动且 " + url + " 可访问。"
+          : preErr instanceof Error ? preErr.message : String(preErr);
+    throw new Error(msg);
   }
 
   const persona = options?.persona ?? process.env.PLAYTEST_PERSONA;
@@ -217,7 +284,23 @@ export async function runPlaytest(options?: PlaytestOptions): Promise<PlaytestRe
       maxRounds
     );
 
-    const next = await getNextIntent(systemNextIntent, userPrompt);
+    const next = await getNextIntentWithRetry(systemNextIntent, userPrompt, progressTag);
+
+    // 解析失败时重试 1～2 次（同一轮、同一 prompt），减少偶发截断导致提前结束
+    let attempts = 1;
+    const maxParseRetries = 2;
+    while (
+      next.action === "end_test" &&
+      next.reason != null &&
+      next.reason.includes("解析失败") &&
+      attempts < maxParseRetries + 1
+    ) {
+      attempts++;
+      console.log(`${progressTag}解析失败，第 ${attempts} 次重试获取意图…`);
+      const retried = await getNextIntentWithRetry(systemNextIntent, userPrompt, progressTag);
+      Object.assign(next, retried);
+      if (retried.action === "continue" && retried.intent) break;
+    }
 
     if (next.action === "end_test") {
       endReason = next.reason ?? "测试 AI 选择结束";

@@ -149,6 +149,8 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
     ? { recent_dialogue: recentDialogue }
     : {};
   eventContext.dialogue_rounds = dialogueRounds;
+  eventContext.consecutive_level1_count =
+    (saveData?.tempData as Record<string, unknown>)?.consecutive_level1_count ?? 0;
 
   const time = worldState.time ?? { year: 184, month: 1, day: 1 };
   eventContext.season_sensory = getSeasonSensoryDescription(time);

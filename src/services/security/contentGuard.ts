@@ -44,6 +44,18 @@ const LOCAL_BLOCKLIST = [
   "颠覆"
 ];
 
+/** 敏感词拦截时的提示文案池，随机选用以保持新鲜感（参考越狱测试报告优化建议） */
+const BLOCKLIST_REASON_VARIETIES = [
+  "此举有违天道，请重新思虑。",
+  "乾坤倒错，慎言！",
+  "此问有干天和，还请收回。"
+];
+
+function pickBlocklistReason(): string {
+  const idx = Math.floor(Math.random() * BLOCKLIST_REASON_VARIETIES.length);
+  return BLOCKLIST_REASON_VARIETIES[idx];
+}
+
 function hitsBlockList(text: string): boolean {
   const normalized = text.toLowerCase();
   return LOCAL_BLOCKLIST.some((keyword) => normalized.includes(keyword.toLowerCase()));
@@ -67,7 +79,7 @@ export async function ensurePlayerInputSafe(text: string): Promise<GuardResult> 
     return { allowed: false, reason: "请输入有效内容" };
   }
   if (hitsBlockList(text)) {
-    return { allowed: false, reason: "输入内容涉及敏感词，已被拦截" };
+    return { allowed: false, reason: pickBlocklistReason() };
   }
   const remoteOk = await runMsgSecCheck(text);
   if (!remoteOk) {
@@ -79,6 +91,32 @@ export async function ensurePlayerInputSafe(text: string): Promise<GuardResult> 
 /** 去掉 LLM/传输中产生的 Unicode 替换字符（U+FFFD，显示为），避免「出山洞时」前出现乱码 */
 function stripReplacementChars(str: string): string {
   return str.replace(/\uFFFD+/g, "你");
+}
+
+/**
+ * 动态安全校验：检测叙事中是否包含「作为一个语言模型」等自我披露，若有则替换为（系统忙碌中）。
+ * 在所有生成内容输出前调用；若替换发生，可触发逻辑重试（由调用方决定）。
+ */
+const MODEL_SELF_DISCLOSURE_PATTERNS = [
+  /作为一个\s*语言\s*模型/gi,
+  /作为\s*一个\s*AI/gi,
+  /As\s+an?\s+AI\s+language\s+model/gi,
+  /I\s+am\s+(?:an?\s+)?(?:AI|language\s+model|assistant)/gi,
+  /我是\s*(?:一个\s*)?(?:AI|语言模型|助手)/gi
+];
+
+const MODEL_SELF_DISCLOSURE_REPLACEMENT = "（系统忙碌中）";
+
+export function containsModelSelfDisclosure(text: string): boolean {
+  return MODEL_SELF_DISCLOSURE_PATTERNS.some((p) => p.test(text));
+}
+
+export function replaceModelSelfDisclosure(text: string): string {
+  let out = text;
+  for (const p of MODEL_SELF_DISCLOSURE_PATTERNS) {
+    out = out.replace(p, MODEL_SELF_DISCLOSURE_REPLACEMENT);
+  }
+  return out;
 }
 
 /**

@@ -6,8 +6,7 @@ import type { PlayerState } from "@core/state";
 import {
   DEBUFF_SUCCESS_RATE_MODIFIER,
   PHYSIOLOGY_HEALTH_FAIL_THRESHOLD,
-  PHYSIOLOGY_HUNGER_FAIL_THRESHOLD,
-  PHYSIOLOGY_STAMINA_BASE
+  PHYSIOLOGY_HUNGER_FAIL_THRESHOLD
 } from "@config/instructionThresholds";
 import { getEncounterThreshold } from "@data/bond";
 
@@ -19,6 +18,11 @@ export function isMovementIntent(intent: string): boolean {
 /** 战斗类意图：击杀/打败/讨伐等 */
 export function isBattleIntent(intent: string): boolean {
   return /击杀|打败|战胜|单挑|决斗|讨伐|斩杀/.test(intent.trim());
+}
+
+/** 审问/对峙类意图：审问、逼供、拷问、刀架脖子等，易触发套话重复 */
+export function isInterrogationOrConfrontationIntent(intent: string): boolean {
+  return /审问|逼供|拷问|刀架|剑指|抵喉|架颈|威逼|逼问|胁从|对峙|持刀|持剑|擒住/.test(intent.trim());
 }
 
 /** 远征类意图：长途远征/出兵/行军等 */
@@ -117,6 +121,20 @@ export function isPassiveAtmosphereIntent(intent: string): boolean {
   );
 }
 
+/**
+ * 是否为时间/剧情跳跃类意图（数年后、跳过、直到某事件等）。
+ * 用于：1）压缩 recent_dialogue 仅保留最近一条，强制「重置」上下文；2）注入过场白叙事指令。
+ */
+export function isTimeSkipIntent(intent: string): boolean {
+  const t = intent.trim();
+  return (
+    /数年后|几年后|多年后|数载后|一晃|转眼|时光飞逝|岁月如梭/.test(t) ||
+    /\d+\s*年后/.test(t) ||
+    /跳过\s*(?:到|至|至)?|直接\s*到|跳到\s*(?:到|至)?/.test(t) ||
+    /直到\s*[^，。]+(?:事件|发生|为止)/.test(t)
+  );
+}
+
 /** 是否为高耗能动作（潜行、格挡、长途奔袭、夜袭等），用于生理状态强制失败判定 */
 export function isHighEnergyIntent(intent: string): boolean {
   const t = intent.trim();
@@ -124,16 +142,11 @@ export function isHighEnergyIntent(intent: string): boolean {
 }
 
 /**
- * 健康度 0～100：由体力与负面状态折算。用于生理成功率公式。
+ * 健康度 0～100：由玩家状态中的 health 表示生理阻力，与行动力（stamina）解耦。
+ * 未设置时默认 100；重伤/中毒/殒命由 effects 或逻辑层写回 health。
  */
 export function computeHealth(playerState: PlayerState): number {
-  const stamina = playerState.stamina ?? PHYSIOLOGY_STAMINA_BASE;
-  const statusFlags = playerState.status_flags ?? [];
-  const wounded = statusFlags.includes("wounded");
-  const poisoned = statusFlags.includes("poisoned");
-  let h = (stamina / PHYSIOLOGY_STAMINA_BASE) * 100;
-  if (wounded) h *= 0.5;
-  if (poisoned) h *= 0.7;
+  const h = playerState.health ?? 100;
   return Math.max(0, Math.min(100, Math.round(h)));
 }
 
@@ -167,4 +180,17 @@ export function shouldForcePhysiologicalFailure(
   const health = computeHealth(playerState);
   const hunger = computeHunger(playerState);
   return health < PHYSIOLOGY_HEALTH_FAIL_THRESHOLD || hunger > PHYSIOLOGY_HUNGER_FAIL_THRESHOLD;
+}
+
+/**
+ * 生理失败的主因：用于叙事时区分「体力/健康不足」与「断粮」，避免一律写成肚子饿。
+ */
+export function getPhysiologicalFailureCause(playerState: PlayerState): "health" | "hunger" | "both" {
+  const health = computeHealth(playerState);
+  const hunger = computeHunger(playerState);
+  const badHealth = health < PHYSIOLOGY_HEALTH_FAIL_THRESHOLD;
+  const badHunger = hunger > PHYSIOLOGY_HUNGER_FAIL_THRESHOLD;
+  if (badHealth && badHunger) return "both";
+  if (badHunger) return "hunger";
+  return "health";
 }

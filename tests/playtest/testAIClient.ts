@@ -38,42 +38,56 @@ function extractJsonFromContent(content: string): string {
   return jsonMatch ? jsonMatch[0] : raw;
 }
 
-async function callChat(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callChat(systemPrompt: string, userPrompt: string, maxTokens = 1024): Promise<string> {
   const { url, apiKey, model } = getApiConfig();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.6,
-      max_tokens: 1024
-    })
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`测试 AI API ${res.status}: ${text.slice(0, 200)}`);
+  const connectTimeoutMs = 60_000; // 60s，避免默认 10s 导致长测偶发超时
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), connectTimeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.6,
+        max_tokens: maxTokens
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`测试 AI API ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data?.choices?.[0]?.message?.content ?? "";
+    if (!content.trim()) throw new Error("测试 AI 返回内容为空");
+    return content;
+  } catch (err) {
+    clearTimeout(t);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`测试 AI API 连接超时（${connectTimeoutMs / 1000} 秒）。请检查网络或稍后重试。`);
+    }
+    throw err;
   }
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data?.choices?.[0]?.message?.content ?? "";
-  if (!content.trim()) throw new Error("测试 AI 返回内容为空");
-  return content;
 }
 
 /**
  * 获取下一句意图或结束测试的决策。
+ * 使用较大 max_tokens 降低长意图被 API 截断导致 JSON 解析失败的概率。
  */
 export async function getNextIntent(
   systemPrompt: string,
   userPrompt: string
 ): Promise<NextIntentResult> {
-  const content = await callChat(systemPrompt, userPrompt);
+  const content = await callChat(systemPrompt, userPrompt, 2048);
   const jsonStr = extractJsonFromContent(content);
   try {
     const parsed = JSON.parse(jsonStr) as Record<string, unknown>;

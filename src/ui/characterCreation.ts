@@ -23,10 +23,11 @@ export const DEFAULT_CREATION_FORM: CharacterCreationForm = {
   attrBonus: { strength: 0, intelligence: 0, charm: 0, luck: 0 }
 };
 
-const ATTR_KEYS: (keyof PlayerAttributes)[] = ["strength", "intelligence", "charm", "luck"];
-const ATTR_LABELS: Record<keyof PlayerAttributes, string> = {
+/** 可分配属性（穿越者智力不可控，仅展示武力、魅力、运气） */
+const DISPLAY_ATTR_KEYS: (keyof PlayerAttributes)[] = ["strength", "charm", "luck"];
+const ATTR_KEYS = DISPLAY_ATTR_KEYS;
+const ATTR_LABELS: Record<string, string> = {
   strength: "武力",
-  intelligence: "智力",
   charm: "魅力",
   luck: "运气"
 };
@@ -50,10 +51,9 @@ export interface CharacterCreationLayout {
   }>;
 }
 
-/** 属性说明文案，点击 ? 时展示 */
-export const ATTR_EXPLANATIONS: Record<keyof PlayerAttributes, string> = {
+/** 属性说明文案，点击 ? 时展示（智力为穿越前定，不展示不分配） */
+export const ATTR_EXPLANATIONS: Record<string, string> = {
   strength: "武力：影响战斗、单挑、征伐等行为的成功概率，武力越高越容易战胜强敌。",
-  intelligence: "智力：影响谋略、游说、调查等行为的成功率，智力越高越能运筹帷幄。",
   charm: "魅力：影响结盟、招募、说服等社交行为，魅力高者更易获得他人信任。",
   luck: "运气：影响随机事件的走向与机遇，运气好者常能逢凶化吉。"
 };
@@ -97,7 +97,8 @@ export function createCharacterCreationLayout(
   const pointsToRowsGap = 14;
   const attrRowHeight = 44;
   const attrGap = 14;
-  const attrAreaHeight = pointsLabelHeight + pointsToRowsGap + attrRowHeight * 4 + attrGap * 3;
+  const numAttrRows = 3;
+  const attrAreaHeight = pointsLabelHeight + pointsToRowsGap + attrRowHeight * numAttrRows + attrGap * (numAttrRows - 1);
   const attrArea: UIRect = {
     x: safeMargin,
     y: genderArea.y + genderArea.height + SECTION_GAP,
@@ -252,7 +253,7 @@ export function renderCharacterCreation(
   ctx.fillText("男", maleBtn.x + maleBtn.width / 2, maleBtn.y + maleBtn.height / 2);
   ctx.fillText("女", femaleBtn.x + femaleBtn.width / 2, femaleBtn.y + femaleBtn.height / 2);
 
-  const totalBonus = ATTR_KEYS.reduce((s, k) => s + (form.attrBonus[k] ?? 0), 0);
+  const totalBonus = DISPLAY_ATTR_KEYS.reduce((s, k) => s + (form.attrBonus[k] ?? 0), 0);
   const remaining = ATTR_BONUS_POINTS - totalBonus;
 
   drawRoundedRect(ctx, layout.attrArea, colors.panel, colors.panelBorder, radius.card);
@@ -297,8 +298,7 @@ export function renderCharacterCreation(
     ctx.fillText("+", row.plusBtn.x + row.plusBtn.width / 2, row.plusBtn.y + row.plusBtn.height / 2);
   });
 
-  const canStart =
-    form.name.trim().length > 0 && remaining === 0;
+  const canStart = form.name.trim().length > 0;
   if (canStart) {
     const btnGradient = ctx.createLinearGradient(
       layout.startButton.x,
@@ -323,7 +323,7 @@ export function renderCharacterCreation(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(
-    canStart ? "开始游戏" : "请完成角色创建",
+    canStart ? "开始游戏" : "请输入姓名",
     layout.startButton.x + layout.startButton.width / 2,
     layout.startButton.y + layout.startButton.height / 2
   );

@@ -3,45 +3,41 @@
  * 入参显式传 saveData / dialogueHistory 或通过窄接口读写，便于单测与 gameApp 瘦身。
  */
 import type { GameSaveData, WorldState } from "@core/state";
-import { captureFromStateChange } from "@core/historyLog";
-import { buildAdjudicationPayload } from "@core/snapshot";
+import { captureFromStateChange, formatLifeSummary } from "@core/historyLog";
 import {
-  computePlayerStateDelta,
-  applyNpcRelationEffects as applyNpcRelationEffectsCore,
-  applyActiveGoalsUpdate,
-  applyHostileFactionFromEffects,
-  applyTimeLapseSideEffects,
-  type PlayerStateDelta
+  GAME_OVER_WORLD_START_YEAR,
+  GAME_OVER_WORLD_YEAR_JIN,
+  GAME_OVER_WORLD_YEARS_FROM_START
+} from "@config/instructionThresholds";
+import { buildAdjudicationPayload } from "@core/snapshot";
+import { isTimeSkipIntent } from "@core/instructionPolicies";
+import {
+  applyAdjudicationResult,
+  type PlayerStateDelta,
+  type ApplyAdjudicationResultOpts
 } from "@core/effectsApplier";
 import type { AdjudicationRequest, AdjudicationResponse } from "@services/network/adjudication";
+import { normalizeSuggestedActions } from "@services/network/adjudication";
+import {
+  buildSnapshotSummary,
+  narrativeContainsError,
+  reportAnomaly
+} from "@services/analytics/wechatEvents";
+import { replaceModelSelfDisclosure } from "@services/security/contentGuard";
 
-/** 构建裁决请求 payload，纯数据入参 */
+/** 构建裁决请求 payload，纯数据入参。若意图为时间/剧情跳跃，则压缩 recentDialogue 仅保留最近一条以「重置」上下文。 */
 export function buildAdjudicationRequest(
   saveData: GameSaveData | null,
   intent: string
 ): AdjudicationRequest {
+  const recentDialogue = isTimeSkipIntent(intent)
+    ? (saveData?.dialogueHistory?.slice(-1) ?? [])
+    : (saveData?.dialogueHistory?.slice(-5) ?? []);
   return buildAdjudicationPayload({
     saveData,
     playerIntent: intent,
-    recentDialogue: saveData?.dialogueHistory?.slice(-5)
+    recentDialogue
   });
-}
-
-/** 将 effects 解析后的玩家增量写回存档，由调用方注入 updater */
-export function applyPlayerStateChanges(
-  saveData: GameSaveData,
-  changes: string[],
-  updatePlayerAttrs: (saveData: GameSaveData, delta: PlayerStateDelta) => void
-): void {
-  const delta = computePlayerStateDelta(changes);
-  updatePlayerAttrs(saveData, delta);
-}
-
-/** 应用 NPC 好感/关系 effects，就地修改 saveData.npcs */
-export function applyNpcRelationEffects(saveData: GameSaveData, effects: string[]): void {
-  if (!saveData.npcs?.length) return;
-  const year = saveData.world?.time?.year ?? 184;
-  applyNpcRelationEffectsCore(saveData, effects, year);
 }
 
 export interface TypewriterCompletionContext {
@@ -50,7 +46,8 @@ export interface TypewriterCompletionContext {
   updateWorldState: (saveData: GameSaveData, worldDelta: Partial<WorldState>) => void;
   autoSave: () => void;
   syncFromSave: () => void;
-  setSuggestedActions: (actions: string[]) => void;
+  /** 规范后的建议动作（含 is_aspiration_focused），最多 3 条 */
+  setSuggestedActions: (actions: Array<{ text: string; is_aspiration_focused: boolean }>) => void;
   requestRewardedAd: (trigger: string) => void;
   playAmbientAudio: (trigger?: string) => void;
 }
@@ -63,49 +60,48 @@ export function applyTypewriterCompletion(
 ): void {
   const { saveData, updatePlayerAttrs, updateWorldState, autoSave, syncFromSave, setSuggestedActions, requestRewardedAd, playAmbientAudio } = ctx;
   if (saveData) {
-    if (response.state_changes?.player?.length) {
-      applyPlayerStateChanges(saveData, response.state_changes.player, updatePlayerAttrs);
-    }
-    if (response.result?.effects?.length) {
-      applyPlayerStateChanges(saveData, response.result.effects, updatePlayerAttrs);
-      applyNpcRelationEffects(saveData, response.result.effects);
-      applyHostileFactionFromEffects(saveData, response.result.effects);
-    }
-    if (response.result?.suggested_goals?.length) {
-      applyActiveGoalsUpdate(saveData, response.result.suggested_goals);
-    }
+    const playerChanges = [
+      ...(response.state_changes?.player ?? []),
+      ...(response.result?.effects ?? [])
+    ];
+    const effects = response.result?.effects ?? [];
+    const suggestedGoals = response.result?.suggested_goals ?? [];
     const timePassedMonths = requestPayload?.logical_results?.time_passed_months ?? 0;
-    if (timePassedMonths >= 1) {
-      applyTimeLapseSideEffects(saveData, timePassedMonths);
-    }
+    let worldDelta: Partial<WorldState> | null = null;
     if (response.state_changes?.world) {
-      const worldDelta = { ...response.state_changes.world };
-      if (requestPayload?.logical_results?.time_passed != null) delete (worldDelta as Record<string, unknown>).time;
-      // 时序单向递增：若 LLM 返回的 time 早于当前存档时间，则忽略，确保时间轴不回溯
-      const worldTime = worldDelta.time as { year?: number; month?: number } | undefined;
+      const raw = { ...response.state_changes.world };
+      if (requestPayload?.logical_results?.time_passed != null) delete (raw as Record<string, unknown>).time;
+      const worldTime = raw.time as { year?: number; month?: number } | undefined;
       const cur = saveData.world?.time;
       if (worldTime && cur && typeof worldTime.year === "number") {
         const wy = worldTime.year;
         const cy = cur.year ?? 184;
         const wm = worldTime.month ?? 1;
         const cm = cur.month ?? 1;
-        if (wy < cy || (wy === cy && wm < cm)) delete (worldDelta as Record<string, unknown>).time;
+        if (wy < cy || (wy === cy && wm < cm)) delete (raw as Record<string, unknown>).time;
       }
-      const newFlags = worldDelta.history_flags;
+      const newFlags = raw.history_flags;
       if (newFlags && saveData.world) {
         const existing = saveData.world.history_flags ?? [];
         const added = Array.isArray(newFlags) ? newFlags : [newFlags];
         saveData.world.history_flags = [...new Set([...existing, ...added])];
-        delete (worldDelta as Record<string, unknown>).history_flags;
+        delete (raw as Record<string, unknown>).history_flags;
       }
-      if (Object.keys(worldDelta).length > 0) {
-        updateWorldState(saveData, worldDelta);
-      }
+      if (Object.keys(raw).length > 0) worldDelta = raw;
     }
+    const opts: ApplyAdjudicationResultOpts = {
+      playerChanges,
+      effects,
+      suggestedGoals,
+      worldDelta,
+      timePassedMonths
+    };
+    applyAdjudicationResult(saveData, opts, { updatePlayerAttrs, updateWorldState });
     autoSave();
     syncFromSave();
-    if (response.result?.suggested_actions && response.result.suggested_actions.length >= 2) {
-      setSuggestedActions(response.result.suggested_actions.slice(0, 2));
+    if (response.result?.suggested_actions != null) {
+      const normalized = normalizeSuggestedActions(response.result.suggested_actions);
+      if (normalized.length >= 2) setSuggestedActions(normalized);
     }
   }
   const effects = response.result?.effects ?? [];
@@ -137,6 +133,8 @@ export interface HandleAdjudicationResultContext {
   completionContext: TypewriterCompletionContext;
   sanitizeNarrative: (narrative: string) => Promise<SanitizeResult>;
   recordSanitizeFailure: (narrative: string, reason?: string) => void;
+  /** 若存在，裁决结果应用后健康度≤0、殒命、60年或三国归晋时调用；(reason, lifeSummary?) */
+  onGameOver?: (reason: string, lifeSummary?: string) => void;
 }
 
 /** 处理裁决 API 返回：安全审核叙事、立即写存档、启动打字机，打字机完成时调用 applyTypewriterCompletion */
@@ -145,10 +143,18 @@ export function handleAdjudicationResult(
   ctx: HandleAdjudicationResultContext
 ): void {
   ctx.setDialogueScrollOffset(0);
-  const narrative =
-    response.result?.narrative != null && String(response.result.narrative).trim() !== ""
-      ? response.result.narrative
+  const rawNarrative = response.result?.narrative;
+  let narrative: string =
+    rawNarrative != null && String(rawNarrative).trim() !== ""
+      ? (typeof rawNarrative === "string" ? rawNarrative : String(rawNarrative))
       : "（未收到剧情，请检查云函数配置或重试）";
+  narrative = narrative.trim() || "（未收到剧情，请检查云函数配置或重试）";
+
+  narrative = replaceModelSelfDisclosure(narrative);
+
+  if (narrativeContainsError(narrative) && ctx.requestPayload) {
+    reportAnomaly("llm_error", buildSnapshotSummary(ctx.requestPayload, { lastNarrativePreview: narrative }));
+  }
 
   /** 仅持久化状态（玩家/世界/NPC），不写入叙事；叙事等打字机播完再入对话，避免未打完就出现完整一条 */
   const applyStateAndPersistImmediately = () => {
@@ -164,8 +170,11 @@ export function handleAdjudicationResult(
         location: { ...p.location }
       };
       const staminaCost = lr.stamina_cost ?? 0;
-      const prevStamina = saveData.player.stamina ?? 80;
+      const prevStamina = saveData.player.stamina ?? 1000;
       saveData.player.stamina = Math.max(0, prevStamina - staminaCost);
+      const prevHealth = saveData.player.health ?? 100;
+      const healthDelta = lr.health_delta ?? 0;
+      saveData.player.health = Math.max(0, Math.min(100, Math.round(prevHealth + healthDelta)));
       if (typeof lr.infamy_delta === "number" && lr.infamy_delta > 0) {
         saveData.player.infamy = Math.max(0, (saveData.player.infamy ?? 0) + lr.infamy_delta);
       }
@@ -179,6 +188,24 @@ export function handleAdjudicationResult(
       const w = requestPayload.world_state;
       saveData.world = { ...w, time: { ...w.time } };
       saveData.npcs = requestPayload.npc_state.map((n) => ({ ...n }));
+
+      const worldYear = saveData.world?.time?.year ?? 184;
+      const lifeSummary = formatLifeSummary(saveData);
+
+      let gameOverReason: string | undefined =
+        lr.game_over_reason?.trim() || (saveData.player.health <= 0 ? "意外殒命" : undefined);
+      if (!gameOverReason && worldYear >= GAME_OVER_WORLD_YEAR_JIN) {
+        gameOverReason = "三国归晋，天下已定";
+      }
+      if (!gameOverReason && worldYear >= GAME_OVER_WORLD_START_YEAR + GAME_OVER_WORLD_YEARS_FROM_START) {
+        gameOverReason = "历经六十载，时代更迭";
+      }
+
+      if (gameOverReason) {
+        if (!saveData.tempData) saveData.tempData = {};
+        (saveData.tempData as Record<string, unknown>).game_over_reason = gameOverReason;
+        ctx.onGameOver?.(gameOverReason, lifeSummary);
+      }
     }
   };
 
@@ -206,7 +233,9 @@ export function handleAdjudicationResult(
       const text = result.allowed && result.text ? result.text : result.reason ?? "内容暂时不可用";
       applyStateAndPersistImmediately();
       ctx.applyTypewriterCompletion(response, ctx.requestPayload, ctx.completionContext);
-
+      if (ctx.saveData?.player != null && (ctx.saveData.player.health ?? 100) <= 0) {
+        ctx.onGameOver?.("意外殒命", formatLifeSummary(ctx.saveData));
+      }
       if (saveData) {
         captureFromStateChange(saveData, { world: prevWorld ?? undefined, playerRegion: prevPlayerRegion }, {
           worldChanges: ctx.requestPayload?.logical_results?.world_changes,
@@ -219,6 +248,9 @@ export function handleAdjudicationResult(
       ctx.recordSanitizeFailure(narrative);
       applyStateAndPersistImmediately();
       ctx.applyTypewriterCompletion(response, ctx.requestPayload, ctx.completionContext);
+      if (ctx.saveData?.player != null && (ctx.saveData.player.health ?? 100) <= 0) {
+        ctx.onGameOver?.("意外殒命", formatLifeSummary(ctx.saveData));
+      }
       startTypewriter(narrative, false);
     });
 }

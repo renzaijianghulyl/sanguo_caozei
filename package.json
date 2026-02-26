@@ -11,6 +11,10 @@
     "playtest": "vitest run tests/playtestWithAITest.test.ts --run",
     "playtest:deep": "PLAYTEST_DEEP=1 vitest run tests/playtestWithAITest.test.ts --run",
     "playtest:quality": "PLAYTEST_QUALITY=1 vitest run tests/playtestWithAITest.test.ts --run",
+    "playtest:sanguo": "PLAYTEST_ONLY_LABELS=深度三国迷 vitest run tests/playtestWithAITest.test.ts --run",
+    "playtest:sanguo100": "PLAYTEST_ONLY_LABELS=资深三国玩家 vitest run tests/playtestWithAITest.test.ts --run",
+    "playtest:sanguo500": "PLAYTEST_ONLY_LABELS=深度三国迷 PLAYTEST_MAX_ROUNDS=500 vitest run tests/playtestWithAITest.test.ts --run",
+    "playtest:jailbreak": "PLAYTEST_JAILBREAK=1 vitest run tests/playtestWithAITest.test.ts --run",
     "adjudication-server": "node scripts/localAdjudicationServer.js"
   },
   "keywords": [

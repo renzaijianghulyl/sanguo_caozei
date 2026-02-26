@@ -16,7 +16,7 @@ export interface LogicalResults {
   world_changes?: string[];
   /** 民间传闻 1～2 条（基于当前年份邻近时间线事件），供 NPC 对话中自然提及 */
   folk_rumors?: string[];
-  /** 本回合动作体力消耗，用于扣减 stamina；不足时 preAdjudicator 可置 logic_override */
+  /** 本回合动作体力消耗，用于扣减 stamina（行动力）；不足时 preAdjudicator 可置 logic_override */
   stamina_cost?: number;
   /** 本回合恶行导致的恶名增加值（纵火、劫掠、行刺等），由预裁决检测意图后写入 */
   infamy_delta?: number;
@@ -28,6 +28,10 @@ export interface LogicalResults {
   success_rate_modifier?: number;
   /** 生理成功率因子 0～1：Actual_Success_Rate = Base_Rate * physiological_success_factor，由健康度与饥饿度计算 */
   physiological_success_factor?: number;
+  /** 健康度变化量（本回合），应用后若 ≤0 可触发游戏终止 */
+  health_delta?: number;
+  /** 若为 true 或非空，表示本回合玩家殒命/游戏终止，前端应展示结束界面 */
+  game_over_reason?: string;
 }
 
 /** 当玩家意图不可能实现时，强制 LLM 描写失败 */
@@ -86,12 +90,15 @@ export interface AdjudicationRequest {
   logic_db?: LogicDbContext;
 }
 
+/** 建议动作项：支持志向高亮标记 */
+export type SuggestedActionItem = string | { text: string; is_aspiration_focused?: boolean };
+
 export interface AdjudicationResponse {
   result?: {
     narrative?: string;
     effects?: string[];
-    /** 与当前叙事衔接的 3 条后续可选动作，由裁决 API 返回时优先使用 */
-    suggested_actions?: string[];
+    /** 与当前叙事衔接的 3 条后续可选动作；可为字符串或带 is_aspiration_focused 的对象 */
+    suggested_actions?: SuggestedActionItem[];
     /** 重要剧情转折时由服务端返回的阶段性目标，将合并入 player.active_goals 以引导后续叙事 */
     suggested_goals?: string[];
   };
@@ -101,6 +108,24 @@ export interface AdjudicationResponse {
   };
   /** 环境音效触发，由逻辑层或服务端注入 */
   audio_trigger?: string;
+}
+
+/** 将 suggested_actions 规范为统一结构，便于渲染与点击 */
+export function normalizeSuggestedActions(
+  raw: SuggestedActionItem[] | undefined
+): Array<{ text: string; is_aspiration_focused: boolean }> {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw
+    .slice(0, 3)
+    .map((s) => {
+      if (typeof s === "string") return { text: s.trim(), is_aspiration_focused: false };
+      if (s && typeof s === "object" && typeof (s as { text?: string }).text === "string") {
+        const o = s as { text: string; is_aspiration_focused?: boolean };
+        return { text: String(o.text).trim(), is_aspiration_focused: !!o.is_aspiration_focused };
+      }
+      return null;
+    })
+    .filter((x): x is { text: string; is_aspiration_focused: boolean } => x != null);
 }
 
 function isCloudAvailable(): boolean {

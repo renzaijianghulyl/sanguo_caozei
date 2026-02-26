@@ -112,7 +112,8 @@ import {
   getBlockedEncounterNpc,
   isMovementIntent as isMovementIntentPolicy,
   getPhysiologicalSuccessFactor,
-  shouldForcePhysiologicalFailure
+  shouldForcePhysiologicalFailure,
+  getPhysiologicalFailureCause
 } from "./instructionPolicies";
 import { getPrompt } from "@core/contentRegistry";
 import { PROMPT_KEYS } from "../agents/prompts";
@@ -342,21 +343,28 @@ export function applyHardConstraints(payload: AdjudicationRequest): Adjudication
   const staminaCost = getStaminaCost(intent);
   logicalResults.stamina_cost = staminaCost;
   logicalResults.physiological_success_factor = getPhysiologicalSuccessFactor(next.player_state);
-  const currentStamina = next.player_state.stamina ?? 80;
+  const currentStamina = next.player_state.stamina ?? 1000;
   if (!logicOverride && currentStamina < staminaCost) {
     logicOverride = {
       reason: "insufficient_stamina",
       instruction:
-        "玩家体力不足，本回合动作须描写为「勉强完成」或「体力不支倒地/半途而废」，不可写成轻松达成。叙事中应体现疲惫、力竭或被迫中止。"
+        "玩家行动力不足，本回合动作须描写为「勉强完成」或「体力不支倒地/半途而废」，不可写成轻松达成。叙事中应体现疲惫、力竭或被迫中止。"
     };
   }
   if (!logicOverride && shouldForcePhysiologicalFailure(next.player_state, intent)) {
-    const physInstruction = getPrompt(PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_NARRATIVE);
+    const cause = getPhysiologicalFailureCause(next.player_state);
+    const key =
+      cause === "health"
+        ? PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_HEALTH
+        : cause === "hunger"
+          ? PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_HUNGER
+          : PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_BOTH;
+    const physInstruction = getPrompt(key);
     logicOverride = {
       reason: "physiological_failure",
       instruction:
         physInstruction ??
-        "【生理失败】本回合动作因重伤/断粮/中毒等生理状态被判定为失败。叙事首句必须直接描述生理痛苦（如：头晕目眩、四肢百骸如针扎），严禁出现「虽然你很累，但你依然成功完成了……」这类软绵绵的叙事。"
+        "【生理失败】本回合动作因生理状态被判定为失败。叙事首句必须直接描述生理痛苦，严禁出现「虽然你很累，但你依然成功完成了……」这类软绵绵的叙事。"
     };
   }
 
@@ -425,8 +433,13 @@ export function applyHardConstraints(payload: AdjudicationRequest): Adjudication
   if (debuff.apply) {
     logicalResults.success_rate_modifier = getDebuffSuccessRateModifier();
     baseEventContext.debuff_active = debuff.labels;
+    const examples: string[] = [];
+    if (debuff.labels.some((l) => l === "重伤" || l === "中毒"))
+      examples.push("力不从心、头晕目眩、步履维艰");
+    if (debuff.labels.includes("断粮")) examples.push("饥肠辘辘导致判断迟缓");
+    const examplePhrase = examples.length ? `（如${examples.join("、")}）` : "";
     baseEventContext.debuff_narrative_instruction =
-      `【负面状态·强制体现】玩家当前处于【${debuff.labels.join("、")}】状态，本回合为战斗或移动类意图，成功率已强制降低 50%。叙事首句必须体现该负面状态对行动的不利影响（如力不从心、头晕目眩、步履维艰、饥肠辘辘导致判断迟缓等），不可写成轻松达成。`;
+      `【负面状态·强制体现】玩家当前处于【${debuff.labels.join("、")}】状态，本回合为战斗或移动类意图，成功率已强制降低 50%。叙事首句必须体现该负面状态对行动的不利影响${examplePhrase}，不可写成轻松达成。`;
   }
 
   const dialogueRounds = (baseEventContext.dialogue_rounds as number | undefined) ?? 0;
@@ -512,7 +525,7 @@ export function applyHardConstraints(payload: AdjudicationRequest): Adjudication
       baseEventContext.narrative_style = "detailed";
       baseEventContext.narrative_max_tokens = 480;
       baseEventContext.narrative_instruction =
-        "叙事约 200 字，侧重个人成长与心境变化，可适当铺陈细节。";
+        "叙事约 200 字，侧重个人成长与心境变化，可适当铺陈细节。须包含至少一处「季节演变」或「气候物候」的描写（如：从初蝉鸣叫到枯叶满地、从春衫到寒衣），以体现 2～11 个月的时间跨度。";
     } else {
       baseEventContext.narrative_style = "novelistic";
       baseEventContext.narrative_max_tokens = 900;
@@ -530,12 +543,27 @@ export function applyHardConstraints(payload: AdjudicationRequest): Adjudication
 
 · 先写这些年里玩家自身的境遇：闭关、修行、身体与心境的变化、孤独感（枯坐、寒暑交替、破茧成蝶）。
 
-· 再写天下大势：基于 logical_results 与 historical_summary，用旁观的笔触写这段岁月里的历史巨变（沧海桑田、狼烟起伏、名将凋零），务必点到具体事件（如董卓入京、官渡之战等）。
+· 再写天下大势：基于 logical_results 与 historical_summary，写这段岁月里的历史巨变（沧海桑田、狼烟起伏、名将凋零），务必点到具体事件（如董卓入京、官渡之战等）。关于天下大势的叙述必须通过玩家的「出关感官」或「市井传闻」侧面切入（例如：你推开柴门，听闻邻人唏嘘：那号称讨董的袁绍竟在官渡败给了曹操……）。严禁以「全知视角」进行历史播报。
 
 · 最后写出关一刻：眼前的光、耳边的声、物是人非的恍惚，再自然接到玩家当下的志向与斗志。
 
 整体语气要像说书人娓娓道来，读者一口气读完，而不是在看带标题的汇报。`;
+      if (destinyGoal) {
+        const anchor = getPrompt(PROMPT_KEYS.LEVEL3_ASPIRATION_ANCHOR);
+        if (anchor) baseEventContext.level3_aspiration_anchor_instruction = anchor;
+      }
     }
+  }
+
+  // 连续 Level 1 计数与第 4 回合微观动态注入
+  const narrativeLevel = baseEventContext.narrative_feedback_level as number | undefined;
+  const isLevel1 = narrativeLevel === 1;
+  const prevLevel1Count = (baseEventContext.consecutive_level1_count as number) ?? 0;
+  const nextLevel1Count = isLevel1 ? prevLevel1Count + 1 : 0;
+  baseEventContext.consecutive_level1_count = nextLevel1Count;
+  if (isLevel1 && nextLevel1Count >= 4) {
+    const diversity = getPrompt(PROMPT_KEYS.CONSECUTIVE_LEVEL1_DIVERSITY);
+    baseEventContext.diversity_instruction = diversity ?? "本回合必须以一个微观动态描写作为开篇（如：火盆里的炭火爆开一丝火星），占 15～30 字，随后再进行后续叙事，不得省略。";
   }
 
   next.event_context = baseEventContext;

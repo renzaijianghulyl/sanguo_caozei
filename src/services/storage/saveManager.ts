@@ -345,7 +345,8 @@ export class SaveManager {
       }
       data.dialogueHistory = migrateDialogueYear(data.dialogueHistory ?? []);
       if (data.player) {
-        if (data.player.stamina == null) data.player.stamina = 80;
+        if (data.player.stamina == null) data.player.stamina = 1000;
+        if (data.player.health == null) data.player.health = 100;
         if (data.player.birth_year == null) data.player.birth_year = 169;
       }
       if (data.npcs?.length) {

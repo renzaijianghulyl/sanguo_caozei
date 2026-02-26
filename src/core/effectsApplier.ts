@@ -3,7 +3,7 @@
  * 玩家属性增减通过 computePlayerStateDelta 产出增量，由调用方写回存档；
  * NPC 好感/关系直接变更传入的 saveData.npcs（就地修改），并委托 RelationManager 更新 Bond（last_seen）。
  */
-import type { GameSaveData, NPCState, PlayerState } from "@core/state";
+import type { GameSaveData, NPCState, PlayerState, WorldState } from "@core/state";
 import type { BondRelationType, PlayerRelationType } from "@core/state";
 import { touchLastSeen, ensureBond, syncBondToLegacyFavor } from "@core/RelationManager";
 import { getAge, canMarry, canSwornBrother } from "@core/relationshipRules";
@@ -72,6 +72,43 @@ export function computePlayerStateDelta(changes: string[]): PlayerStateDelta {
 }
 
 const MAX_HOSTILE_FACTIONS = 10;
+
+/**
+ * 从 effects 中解析健康度与殒命相关变更，就地修改 saveData.player。
+ * 支持：player_died / health=0 → 健康度置 0；health+10 / health-20 → 增减；status=wounded → 健康度上限 50；status=poisoned → 健康度 ×0.7。
+ */
+export function applyHealthFromEffects(saveData: GameSaveData, effects: string[]): void {
+  if (!saveData?.player || !effects?.length) return;
+  const p = saveData.player;
+  let health = p.health ?? 100;
+  const flags = [...(p.status_flags ?? [])];
+
+  for (const e of effects) {
+    const t = e.trim();
+    if (t === "player_died" || t === "health=0") {
+      health = 0;
+      continue;
+    }
+    const deltaMatch = t.match(/^health([+-]\d+)$/);
+    if (deltaMatch) {
+      health = Math.max(0, Math.min(100, health + Number(deltaMatch[1])));
+      continue;
+    }
+    if (t === "status=wounded") {
+      if (!flags.includes("wounded")) flags.push("wounded");
+      health = Math.min(health, 50);
+      continue;
+    }
+    if (t === "status=poisoned") {
+      if (!flags.includes("poisoned")) flags.push("poisoned");
+      health = Math.max(0, Math.round(health * 0.7));
+      continue;
+    }
+  }
+
+  p.health = Math.max(0, Math.min(100, health));
+  if (flags.length > 0) p.status_flags = flags;
+}
 
 /**
  * 从 effects 中解析 hostile_faction=X，将势力 id 加入玩家黑名单并持久化。
@@ -239,4 +276,41 @@ export function applyActiveGoalsUpdate(
   }
   if (added.length === 0) return;
   saveData.player.active_goals = [...added, ...current].slice(0, MAX_ACTIVE_GOALS);
+}
+
+/** 供 adjudicationFlow 调用的收口：一次应用裁决结果中的全部 effects 与世界变更 */
+export interface ApplyAdjudicationResultOpts {
+  /** state_changes.player 与 result.effects 合并后的变更列表（用于 computePlayerStateDelta + updatePlayerAttrs） */
+  playerChanges: string[];
+  /** result.effects（用于 NPC/hostile/health） */
+  effects: string[];
+  suggestedGoals: string[];
+  /** 已处理过时间回退与 history_flags 的 world 增量，可为空 */
+  worldDelta: Partial<WorldState> | null;
+  timePassedMonths: number;
+}
+
+export function applyAdjudicationResult(
+  saveData: GameSaveData,
+  opts: ApplyAdjudicationResultOpts,
+  updater: {
+    updatePlayerAttrs: (saveData: GameSaveData, delta: PlayerStateDelta) => void;
+    updateWorldState: (saveData: GameSaveData, worldDelta: Partial<WorldState>) => void;
+  }
+): void {
+  if (opts.playerChanges.length) {
+    const delta = computePlayerStateDelta(opts.playerChanges);
+    updater.updatePlayerAttrs(saveData, delta);
+  }
+  if (opts.effects.length) {
+    const year = saveData.world?.time?.year ?? 184;
+    applyNpcRelationEffects(saveData, opts.effects, year);
+    applyHostileFactionFromEffects(saveData, opts.effects);
+    applyHealthFromEffects(saveData, opts.effects);
+  }
+  if (opts.suggestedGoals?.length) applyActiveGoalsUpdate(saveData, opts.suggestedGoals);
+  if (opts.timePassedMonths >= 1) applyTimeLapseSideEffects(saveData, opts.timePassedMonths);
+  if (opts.worldDelta && Object.keys(opts.worldDelta).length > 0) {
+    updater.updateWorldState(saveData, opts.worldDelta);
+  }
 }

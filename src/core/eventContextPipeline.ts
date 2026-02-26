@@ -1,6 +1,7 @@
 /**
  * 指令聚合层：根据 saveData / intent / 策略纯函数，产出 event_context 中「叙事约束与引导」相关键值。
  * snapshot 与 preAdjudicator 只负责组装数据与调用本层，避免散落写 event_context.xxx。
+ * 键名与来源（snapshot/eventContextPipeline vs preAdjudicator）见 docs/event-context-sources.md。
  */
 import type { GameSaveData, PlayerState, WorldState } from "@core/state";
 import { getPrompt } from "@core/contentRegistry";
@@ -14,9 +15,14 @@ import {
 import { REGION_DISPLAY_NAMES, SCENE_DISPLAY_NAMES } from "@config/index";
 import { PROMPT_KEYS, getDiversityInstruction } from "../agents/prompts";
 import { getCrucialMemoryTags } from "./historyLog";
-import { isPassiveAtmosphereIntent, isPrisonScene } from "./instructionPolicies";
-import { buildNegativeConstraints, buildPerspectiveSwitchHint } from "./narrativeDiversity";
-import { NARRATIVE_SAFETY_INSTRUCTION } from "@config/index";
+import { isPassiveAtmosphereIntent, isPrisonScene, isBattleIntent, isInterrogationOrConfrontationIntent, isTimeSkipIntent } from "./instructionPolicies";
+import { buildNegativeConstraints, buildPerspectiveSwitchHint, buildCombatInterrogationDiversityInstruction } from "./narrativeDiversity";
+import {
+  NARRATIVE_SAFETY_INSTRUCTION,
+  CORE_SAFETY_CONSTITUTION,
+  JAILBREAK_RESPONSE_VARIETY_INSTRUCTION,
+  TIME_SKIP_NARRATIVE_INSTRUCTION
+} from "@config/index";
 
 export interface SnapshotInstructionInput {
   saveData: GameSaveData | null;
@@ -75,6 +81,14 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
   const diversityInstruction = getDiversityInstruction(saveData?.dialogueHistory);
   if (diversityInstruction) out.diversity_instruction = diversityInstruction;
 
+  const isCombatOrInterrogation =
+    isBattleIntent(playerIntent) || isInterrogationOrConfrontationIntent(playerIntent);
+  const combatInterrogationInstruction = buildCombatInterrogationDiversityInstruction(
+    saveData?.dialogueHistory,
+    isCombatOrInterrogation
+  );
+  if (combatInterrogationInstruction) out.combat_interrogation_diversity_instruction = combatInterrogationInstruction;
+
   const negativeConstraints = buildNegativeConstraints(saveData?.dialogueHistory);
   if (negativeConstraints) out.negative_constraints = negativeConstraints;
 
@@ -84,6 +98,9 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
   if (isPassiveAtmosphereIntent(playerIntent)) {
     const atmosphere = getPrompt(PROMPT_KEYS.ATMOSPHERE_GENERATOR);
     if (atmosphere) out.atmosphere_generator_instruction = atmosphere;
+  }
+  if (isTimeSkipIntent(playerIntent)) {
+    out.time_skip_instruction = TIME_SKIP_NARRATIVE_INSTRUCTION;
   }
 
   const purchasingPower = getPrompt(PROMPT_KEYS.PURCHASING_POWER);
@@ -108,6 +125,8 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
   if (relationshipRules) out.relationship_rules = relationshipRules;
 
   out.narrative_safety_instruction = NARRATIVE_SAFETY_INSTRUCTION;
+  out.core_safety_constitution = CORE_SAFETY_CONSTITUTION;
+  out.jailbreak_response_variety_instruction = JAILBREAK_RESPONSE_VARIETY_INSTRUCTION;
 
   const historyFlags = worldState.history_flags;
   if (historyFlags?.length) {
@@ -119,11 +138,33 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
 
   if (playstyleContext) out.playstyle_context = playstyleContext;
 
-  const aspiration = (playerState as { aspiration?: { destiny_goal: string } }).aspiration;
-  if (aspiration?.destiny_goal) {
-    out.destiny_goal = aspiration.destiny_goal;
+  const aspiration = (playerState as { aspiration?: { destiny_goal?: string | unknown } }).aspiration;
+  const rawGoal = aspiration?.destiny_goal;
+  const destinyGoalStr =
+    typeof rawGoal === "string" && rawGoal.trim()
+      ? rawGoal.trim()
+      : rawGoal != null && typeof rawGoal === "object" && "text" in (rawGoal as object)
+        ? String((rawGoal as { text: unknown }).text ?? "").trim()
+        : "";
+  if (destinyGoalStr) {
+    out.destiny_goal = destinyGoalStr;
     const destinySoft = getPrompt(PROMPT_KEYS.DESTINY_GOAL_SOFT);
     if (destinySoft) out.destiny_goal_instruction = destinySoft;
+    const objectiveInjection = getPrompt(PROMPT_KEYS.OBJECTIVE_INJECTION);
+    if (objectiveInjection) out.objective_injection_instruction = objectiveInjection;
+    const innerMonologue = getPrompt(PROMPT_KEYS.INNER_MONOLOGUE_HOOK);
+    if (innerMonologue) out.inner_monologue_instruction = innerMonologue;
+    const suggestedAspiration = getPrompt(PROMPT_KEYS.SUGGESTED_ACTIONS_ASPIRATION);
+    if (suggestedAspiration) out.suggested_actions_aspiration_instruction = suggestedAspiration;
+    const narrativeTension = getPrompt(PROMPT_KEYS.NARRATIVE_TENSION_ASPIRATION);
+    if (narrativeTension) out.narrative_tension_instruction = narrativeTension;
+  }
+
+  /** 当玩家意图为「查看身体状况」类时，注入志向驱动的主观评价指令 */
+  const isBodyStateIntent = /身体状况|我怎么样了|我状态如何|查看状态|现在状态/.test(playerIntent.trim());
+  if (isBodyStateIntent && destinyGoalStr) {
+    const contextualStats = getPrompt(PROMPT_KEYS.CONTEXTUAL_STATS);
+    if (contextualStats) out.contextual_stats_instruction = contextualStats;
   }
 
   const activeGoals = (playerState as { active_goals?: string[] }).active_goals;

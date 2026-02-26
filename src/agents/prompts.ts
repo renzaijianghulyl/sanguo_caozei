@@ -37,8 +37,28 @@ export const PROMPT_KEYS = {
   ATMOSPHERE_GENERATOR: "atmosphere_generator",
   /** 生理状态导致动作失败时，强制首句描写生理痛苦 */
   PHYSIOLOGICAL_FAILURE_NARRATIVE: "physiological_failure_narrative",
+  /** 生理失败·主因体力/健康不足（勿写饥饿） */
+  PHYSIOLOGICAL_FAILURE_HEALTH: "physiological_failure_health",
+  /** 生理失败·主因断粮（强调饥肠辘辘） */
+  PHYSIOLOGICAL_FAILURE_HUNGER: "physiological_failure_hunger",
+  /** 生理失败·体力不足且断粮 */
+  PHYSIOLOGICAL_FAILURE_BOTH: "physiological_failure_both",
   /** 中长期记忆联觉唤醒：关联关键事件，体现物是人非 */
-  MEMORY_RESONANCE: "memory_resonance"
+  MEMORY_RESONANCE: "memory_resonance",
+  /** 每轮叙事末尾：根据志向附带 1-3 句符合直觉的下一步暗示（微目标注入） */
+  OBJECTIVE_INJECTION: "objective_injection",
+  /** 玩家查看身体状况时：基于志向的主观评价而非冷数据 */
+  CONTEXTUAL_STATS: "contextual_stats",
+  /** 叙事末尾【心之所向】内心独白段落 */
+  INNER_MONOLOGUE_HOOK: "inner_monologue_hook",
+  /** suggested_actions 前 1-2 条须为志向相关（推荐标签） */
+  SUGGESTED_ACTIONS_ASPIRATION: "suggested_actions_aspiration",
+  /** 每轮叙事末尾必须：当前困境与长远志向的矛盾冲突（反馈的重量） */
+  NARRATIVE_TENSION_ASPIRATION: "narrative_tension_aspiration",
+  /** 连续多轮 Level 1 时强制描写微观动态变化，打破干瘪感 */
+  CONSECUTIVE_LEVEL1_DIVERSITY: "consecutive_level1_diversity",
+  /** Level 3 长篇叙事末尾必须落脚志向与困境的摩擦（时不我待） */
+  LEVEL3_ASPIRATION_ANCHOR: "level3_aspiration_anchor"
 } as const;
 
 export function bootstrapDefaultPrompts(): void {
@@ -61,7 +81,7 @@ export function bootstrapDefaultPrompts(): void {
   );
   registerPrompt(
     PROMPT_KEYS.STATE_AWARE_NARRATIVE,
-    "【状态感知叙事】每一轮叙事的开头，请根据 player_state 的 stamina（体力）与 attrs.charm（魅力）表现角色的第一人称体感：体力低时可写疲惫、饥饿感或步履沉重；魅力高时可写自信、气度从容；体力充沛且魅力高时可写神采奕奕；反之可写局促、低调或力不从心。用 1～2 句自然融入，勿单独成段罗列数值。"
+    "【状态感知叙事】每一轮叙事的开头，请根据 player_state 的 stamina（行动力）、health（健康度）与 attrs.charm（魅力）表现角色的第一人称体感：行动力低时可写疲惫、步履沉重、力不从心；健康度低时可写伤病缠身、气若游丝；魅力高时可写自信、气度从容；行动力与健康度充沛且魅力高时可写神采奕奕；反之可写局促、低调或力不从心。若 resources.food 为 0（断粮）则可写饥饿感、腹中空空。用 1～2 句自然融入，勿单独成段罗列数值。"
   );
   registerPrompt(
     PROMPT_KEYS.NO_TEMPLATE_OPENING,
@@ -89,7 +109,7 @@ export function bootstrapDefaultPrompts(): void {
   );
   registerPrompt(
     PROMPT_KEYS.LOGIC_CONFLICT_HIGH,
-    "【逻辑冲突·高时叙事】当 event_context 中 logic_conflict_count 较高（≥3）时：停止对玩家悖论进行解释或说教；转而以嘲讽、无视、或将其视为精神错乱的态度进行叙事。NPC 可冷笑、敷衍、或直接当作疯话处理，勿再重复纠正时间线/地理位置；用简短、带情绪的回应替代长篇解释。"
+    "【逻辑冲突·高时叙事·穿越者兼容】当 event_context 中 logic_conflict_count 较高（≥3）时：玩家设定为穿越者，其「胡话」或现代词汇可解释为宿主夺舍不稳、离魂症发作、或被异界邪灵入体。不要简单报错或嘲讽；NPC 应表现出怜悯、关切或施救（如：递水、搀扶、请郎中、念安神咒），将逻辑冲突转化为剧情张力，让玩家感受到被世界「包容」而非否定。当玩家触发「离魂症」叙事时，除 NPC 的关切外，须在 effects 中建议扣除少量属性（如 intelligence-1 或 health-5），并在叙事中描述为「神魂激荡导致的元气受损」，让玩家意识到胡言乱语是有代价的。"
   );
   registerPrompt(
     PROMPT_KEYS.LOCATION_AUTHORITY,
@@ -156,8 +176,48 @@ export function bootstrapDefaultPrompts(): void {
     "【生理失败·强制体现】本回合动作因重伤/断粮/中毒等生理状态被判定为失败。叙事首句必须直接描述生理痛苦（如：头晕目眩、四肢百骸如针扎、饥肠辘辘导致眼前发黑），严禁出现「虽然你很累，但你依然成功完成了……」这类软绵绵的叙事。失败即失败，须让玩家感受到身体极限。"
   );
   registerPrompt(
+    PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_HEALTH,
+    "【生理失败·体力/健康不足】本回合动作因体力不支或健康度极低被判定为失败（非断粮）。叙事首句必须直接描述力竭、头晕、四肢发软、眼前发黑等，严禁出现「肚子饿」「饥肠辘辘」「饿得眼睛发花」等饥饿类描写；须让玩家感受到是「累垮了」而非「饿坏了」。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_HUNGER,
+    "【生理失败·断粮】本回合动作因断粮（粮草耗尽）被判定为失败。叙事首句必须直接描述饥肠辘辘、浑身无力、眼前发黑等饥饿导致的生理极限，严禁写成依然成功完成动作。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.PHYSIOLOGICAL_FAILURE_BOTH,
+    "【生理失败·体力不足且断粮】本回合动作因体力不支且断粮被判定为失败。叙事首句须同时体现力竭与饥饿感（如：又累又饿、四肢发软兼腹中空空、眼前发黑），严禁出现「虽然你很累/饿，但你依然成功完成了……」这类软绵绵的叙事。"
+  );
+  registerPrompt(
     PROMPT_KEYS.MEMORY_RESONANCE,
     "【联觉唤醒·物是人非】event_context 中若提供 memory_resonance_tags，表示玩家曾在很久以前与此地/此人/此物有过关键交集。请在本轮描述中自然关联该事件，体现出物是人非的对比感或似曾相识的既视感，增强蝴蝶效应的参与感。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.OBJECTIVE_INJECTION,
+    "【下一步微目标·叙事钩子】若 event_context 中有 destiny_goal，请在每轮 narrative 的末尾（环境描写之后）附带 1～3 句「符合直觉的暗示」，把长远志向拆解为当下可做的一小步。不要只写环境，要给出可行动的锚点。例如：志向匡扶汉室时可写「虽腹中饥馁，但你怀中那卷荐书却沉甸甸的，或许北邙山的营火是你唯一的出路。」志向割据一方时可写「眼下流民四散，正是收拢人心之时，若能寻得几份口粮，这破庙里的壮丁或许能为你所用。」志向富甲天下时可写「此地商贾往来频繁，若先摸清粮价与马市行情，或能寻到第一桶金的契机。」用 1～3 句自然收束，勿生硬罗列任务。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.CONTEXTUAL_STATS,
+    "【志向驱动·身体状况】当玩家本回合意图为「查看身体状况」「属性」「我怎么样了」「我状态如何」等时，你的 narrative 须为「基于 destiny_goal 的主观评价」段落，而非冷数据罗列。结合 player_state 的气血、行动力、健康度、处境，用 2～4 句带情绪的叙述。例如：志向绝世武将时可写「你感到双臂肌肉酸痛，这种状态别说提刀上阵，怕是连寻常蟊贼也难应付。你需要尽快修整，否则万人敌之梦将碎于这荒野。」志向隐世名士时可写「你面色苍白，形容枯槁。如此落魄之姿，怕是连驿馆的门吏都瞧你不起，更遑论去拜访荀文若了。」文末可带 1 句与志向相关的下一步暗示。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.INNER_MONOLOGUE_HOOK,
+    "【心之所向·内心独白】若 event_context 中有 destiny_goal，请在 narrative 的末尾增加一段【心之所向】内心独白（另起一行或空一行后写）。以「我」的视角，结合当前处境、气血与志向，写 1～3 句内心声音，既有对目标的渴望也有对现实的担忧，增强代入感。例如：「曹操已迁都许县，若我此时动身，或许能赶在群雄并起前立下一份功劳。但这具残躯……真的能撑过今晚的暴雪吗？」不必每轮都写，但在关键转折、低状态或长时间未推进时强烈建议输出。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.SUGGESTED_ACTIONS_ASPIRATION,
+    "【建议动作·志向偏好】suggested_actions 须包含 1～2 条与 destiny_goal 直接相关的「志向动作」，并放在列表前部（第 1、2 条），其余为通用情境动作。例如：志向报效国家时前两条可为「前往官府投军」「打听朝廷招贤」；志向富甲天下时可为「打听黑市消息」「与商队搭话」；志向割据一方时可为「收拢流民」「寻访本地豪强」。客户端会对前部动作做「荐」标或高亮，以便玩家感知与志向的衔接。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.NARRATIVE_TENSION_ASPIRATION,
+    "【反馈的重量·志向与困境】当 event_context 中有 destiny_goal 时，每轮 narrative 的末尾必须包含一段「当前困境与长远志向的矛盾冲突」，用 1～3 句话点出：当下的身体/资源/处境如何阻碍或考验你的志向，从而自然引导玩家下一步行动。例如：玩家志向成为名将但当前很饿时，写「你饥肠辘辘，这让你握不住手中的长剑；若想成为公孙瓒那样的名将，现在的你显然太弱小了。」志向经商但囊中羞涩时，写「囊中空空，连一匹像样的马都置办不起，遑论去洛阳闯荡商路。」不要只写「你很饿」这类冷数据，要写出志向与现实的张力，让玩家产生「我要去搞吃的→我要变强→我要追逐志向」的行动链。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.CONSECUTIVE_LEVEL1_DIVERSITY,
+    "【微观动态·打破干瘪】本回合为连续多轮短叙事，为避免重复与干瘪感，必须以一个微观动态描写作为开篇（如：火盆里的炭火爆开一丝火星、香灰落地、檐角滴下一滴积雨）。随后再进行后续叙事。该开篇描写需占 15～30 字，计入总字数限制，不得省略或后置。"
+  );
+  registerPrompt(
+    PROMPT_KEYS.LEVEL3_ASPIRATION_ANCHOR,
+    "【志向聚焦·叙事收束】长篇叙事的最后一句话必须落脚在：一年的光阴过去了，当下的困境与你当初立下的志向（见上【玩家愿望】）之间产生了怎样的摩擦或焦虑。无论前文如何铺陈天下大势，结尾须让玩家产生「时不我待」的紧迫感，将叙事拉回个人志向与当下处境的张力。关于天下大势的叙述（如董卓入京、官渡之战），必须通过玩家的「出关感官」或「市井传闻」侧面切入。例如：「你推开柴门，听闻邻人唏嘘：那号称讨董的袁绍竟在官渡败给了曹操……」。严禁以「全知视角」进行历史播报，保持穿越者的第一人称沉浸感。"
   );
 }
 

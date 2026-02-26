@@ -76,6 +76,24 @@ function copyArtifacts() {
     fs.writeFileSync(rootTarget, content, "utf-8");
     copyFileSafe(rootTarget, distTarget);
   });
+
+  if (!watchMode) {
+    const filesToReport = Object.values(outputNames);
+    console.log("[build] 产物体积：");
+    let totalBytes = 0;
+    filesToReport.forEach((fileName) => {
+      const p = path.join(distDir, fileName);
+      if (fs.existsSync(p)) {
+        const stat = fs.statSync(p);
+        totalBytes += stat.size;
+        const kb = (stat.size / 1024).toFixed(1);
+        console.log(`  ${fileName}: ${kb} KB`);
+      }
+    });
+    if (totalBytes > 0) {
+      console.log(`  合计: ${(totalBytes / 1024).toFixed(1)} KB（首包预算建议 ≤ 1024 KB）`);
+    }
+  }
 }
 
 async function buildOnce() {

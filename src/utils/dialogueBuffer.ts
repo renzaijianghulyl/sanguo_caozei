@@ -1,10 +1,20 @@
 export const DEFAULT_HISTORY_LIMIT = 120;
 
 export function appendDialogue(history: string[], lines: string | string[], limit = DEFAULT_HISTORY_LIMIT): string[] {
+  const toStr = (x: unknown): string => {
+    if (x == null) return "";
+    if (typeof x === "string") return x;
+    if (typeof x === "number" || typeof x === "boolean") return String(x);
+    return ""; // 对象/数组不拼成 [object Object]，丢弃
+  };
   if (Array.isArray(lines)) {
-    history.push(...lines);
+    lines.forEach((line) => {
+      const s = toStr(line);
+      if (s) history.push(s);
+    });
   } else {
-    history.push(lines);
+    const s = toStr(lines);
+    if (s) history.push(s);
   }
   enforceLimit(history, limit);
   return history;
