@@ -23,6 +23,7 @@ import {
   JAILBREAK_RESPONSE_VARIETY_INSTRUCTION,
   TIME_SKIP_NARRATIVE_INSTRUCTION
 } from "@config/index";
+import { buildDirectorIntent, getSensoryForWeather, computeTension, type DirectorIntent } from "./DirectorModule";
 
 export interface SnapshotInstructionInput {
   saveData: GameSaveData | null;
@@ -36,6 +37,16 @@ export interface SnapshotInstructionInput {
   dialogueRounds: number;
   /** 由 snapshot 侧根据 ambition / active_titles 生成后传入 */
   playstyleContext?: string;
+  /** 核心引擎 2.0：当前世界（汉代纪年 + 天气），供叙事硬约束 */
+  engineWorldContext?: { year: number; month: number; chineseYear: string; weather: string };
+  /** 核心引擎 2.0：向量库检索到的相关往事记忆，若有则要求 AI 在台词中提及 */
+  relevantMemories?: string[];
+  /** 导演模块：WorldManager 产出的最新战报（客观或文学化），注入 world_context */
+  worldReports?: string[];
+  /** 导演模块：当前区域天气标签，用于感官词库；若不传则从 worldState.regions[currentRegionKey].weather 读取 */
+  currentRegionWeather?: string;
+  /** 导演模块：基于 WorldState 的导演指示；若不传则内部根据 worldState 调用 buildDirectorIntent 计算 */
+  directorIntent?: DirectorIntent | null;
 }
 
 /**
@@ -50,9 +61,62 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
     playerIntent,
     logic_db,
     dialogueRounds,
-    playstyleContext
+    playstyleContext,
+    engineWorldContext,
+    relevantMemories,
+    worldReports,
+    currentRegionWeather,
+    directorIntent: directorIntentInput
   } = input;
   const out: Record<string, unknown> = {};
+
+  /** 导演模块：战报注入 world_context */
+  if (worldReports?.length) {
+    out.world_context = worldReports;
+    out.world_context_instruction =
+      "【天下传闻】以下为近期发生的势力变动或传闻，叙事中可自然引用或作为背景，增强时代感。";
+  }
+
+  /** 导演模块：导演指示（极端情境下的氛围约束） */
+  let directorIntent = directorIntentInput ?? buildDirectorIntent(worldState);
+  if (directorIntent?.instruction) {
+    out.director_intent = directorIntent.instruction;
+  }
+  if (worldReports?.some((r) => typeof r === "string" && r.includes("献城"))) {
+    const prev = (out.director_intent as string) || "";
+    out.director_intent =
+      prev +
+      (prev ? "\n" : "") +
+      "【导演指示】本回合有守将献城之事，叙事中须体现其无奈或投机，而非死战到底。";
+  }
+
+  /** 导演模块：动态氛围值（紧张度 0～1），供叙事节奏与镜头感使用 */
+  const recentReportsCount = worldReports?.length ?? 0;
+  const atmosphereTension = computeTension(worldState, recentReportsCount);
+  out.atmosphere_tension = atmosphereTension;
+  if (atmosphereTension >= 0.6) {
+    out.atmosphere_instruction =
+      "【氛围】当前局势紧张，叙事节奏宜紧凑，对话可带戒备或急促感。";
+  } else if (atmosphereTension <= 0.3) {
+    out.atmosphere_instruction =
+      "【氛围】当前氛围相对平和，叙事可多留白、闲笔与感官描写。";
+  }
+
+  /** 核心引擎 2.0：强制注入当前世界（年份/天气）与叙事约束 */
+  if (engineWorldContext) {
+    out.engine_world = engineWorldContext;
+    out.engine_world_instruction =
+      "【当前世界】当前为" +
+      engineWorldContext.chineseYear +
+      "，天气：" +
+      engineWorldContext.weather +
+      "。叙事须体现年份感与季节感。";
+  }
+  if (relevantMemories?.length) {
+    out.vector_memories = relevantMemories;
+    out.vector_memories_instruction =
+      "【往事记忆】以下为与当前 NPC/地点相关的历史片段，若与当前情境相关，请在台词中自然提及往事，以体现岁月与因果。";
+  }
 
   const currentRegionKey = playerState.location?.region ?? "";
   const currentRegionName =
@@ -61,6 +125,19 @@ export function buildSnapshotInstructions(input: SnapshotInstructionInput): Reco
     (r) => r.name === currentRegionName
   );
   const landmarks = currentRegionEntry?.landmarks;
+
+  /** 导演模块：感官词库注入（当前区域天气 -> 强制引用感官短语）；若处于近期战事情境则追加组合短语（如冬雪+战后） */
+  const weatherTag =
+    currentRegionWeather ?? worldState.regions?.[currentRegionKey]?.weather ?? "";
+  const sensoryContext = directorIntent?.reason === "recent_war" ? "战后" : undefined;
+  if (weatherTag) {
+    const sensoryPhrases = getSensoryForWeather(weatherTag, sensoryContext);
+    if (sensoryPhrases.length > 0) {
+      out.region_sensory = sensoryPhrases;
+      out.region_sensory_instruction =
+        `【强制感官】当前区域天气为「${weatherTag}」。请在场景描述中至少引用以下感官之一：${sensoryPhrases.join("、")}。`;
+    }
+  }
 
   const locationAuthority = getPrompt(PROMPT_KEYS.LOCATION_AUTHORITY);
   if (locationAuthority) out.location_authority = locationAuthority;

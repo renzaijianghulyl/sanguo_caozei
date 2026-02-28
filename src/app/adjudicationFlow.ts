@@ -3,6 +3,8 @@
  * 入参显式传 saveData / dialogueHistory 或通过窄接口读写，便于单测与 gameApp 瘦身。
  */
 import type { GameSaveData, WorldState } from "@core/state";
+import { getWorldManager } from "@core/WorldManager";
+import { handlePlayerAction } from "@core/actionHandler";
 import { captureFromStateChange, formatLifeSummary } from "@core/historyLog";
 import {
   GAME_OVER_WORLD_START_YEAR,
@@ -18,6 +20,7 @@ import {
 } from "@core/effectsApplier";
 import type { AdjudicationRequest, AdjudicationResponse } from "@services/network/adjudication";
 import { normalizeSuggestedActions } from "@services/network/adjudication";
+import type { IVectorMemoryManager } from "@services/VectorMemoryManager";
 import {
   buildSnapshotSummary,
   narrativeContainsError,
@@ -25,19 +28,68 @@ import {
 } from "@services/analytics/wechatEvents";
 import { replaceModelSelfDisclosure } from "@services/security/contentGuard";
 
-/** 构建裁决请求 payload，纯数据入参。若意图为时间/剧情跳跃，则压缩 recentDialogue 仅保留最近一条以「重置」上下文。 */
-export function buildAdjudicationRequest(
+/** 构建裁决请求 payload，纯数据入参。若意图为时间/剧情跳跃，则压缩 recentDialogue 仅保留最近一条以「重置」上下文。可选传入 vectorMemoryManager 以注入相关往事记忆。 */
+export async function buildAdjudicationRequest(
   saveData: GameSaveData | null,
-  intent: string
-): AdjudicationRequest {
+  intent: string,
+  vectorMemoryManager?: IVectorMemoryManager
+): Promise<AdjudicationRequest> {
   const recentDialogue = isTimeSkipIntent(intent)
     ? (saveData?.dialogueHistory?.slice(-1) ?? [])
     : (saveData?.dialogueHistory?.slice(-5) ?? []);
+  let relevantMemories: string[] | undefined;
+  if (vectorMemoryManager && saveData) {
+    relevantMemories = await vectorMemoryManager.retrieveRelevantMemories({
+      npc_id: "",
+      region_id: saveData.player?.location?.region ?? "",
+      session_id: saveData.meta?.playerId ?? "",
+      limit: 3
+    });
+  }
   return buildAdjudicationPayload({
     saveData,
     playerIntent: intent,
-    recentDialogue
+    recentDialogue,
+    relevantMemories
   });
+}
+
+/**
+ * 准备裁决 payload：推进世界 7 天、写回 world/npcs/reports、可选文学化传闻、构建请求并应用 handlePlayerAction。
+ * 供 gameApp 调用，将「准备阶段」从主控中抽离，便于单测与职责清晰。
+ */
+export async function prepareIntentPayload(
+  saveData: GameSaveData | null,
+  intent: string,
+  vectorMemoryManager?: IVectorMemoryManager
+): Promise<AdjudicationRequest | null> {
+  if (!saveData) return null;
+  const { world, npcs, reports } = getWorldManager().updateWorld(saveData, 7);
+  saveData.world = world;
+  saveData.npcs = npcs;
+  if (!saveData.tempData) saveData.tempData = {};
+  (saveData.tempData as Record<string, unknown>).recentWorldReports = reports;
+  if (
+    reports.length > 0 &&
+    vectorMemoryManager?.literarizeAndSaveRumors &&
+    saveData.meta?.playerId
+  ) {
+    vectorMemoryManager
+      .literarizeAndSaveRumors(reports, {
+        npc_ids: "",
+        region_id: saveData.player?.location?.region ?? "",
+        year: saveData.world?.time?.year ?? 184,
+        session_id: saveData.meta.playerId
+      })
+      .catch(() => {});
+  }
+  const payload = await buildAdjudicationRequest(saveData, intent, vectorMemoryManager);
+  const out = handlePlayerAction(payload, saveData);
+  if (out.event_context?.consecutive_level1_count != null && saveData.tempData) {
+    (saveData.tempData as Record<string, unknown>).consecutive_level1_count =
+      out.event_context.consecutive_level1_count;
+  }
+  return out;
 }
 
 export interface TypewriterCompletionContext {
@@ -133,6 +185,8 @@ export interface HandleAdjudicationResultContext {
   completionContext: TypewriterCompletionContext;
   sanitizeNarrative: (narrative: string) => Promise<SanitizeResult>;
   recordSanitizeFailure: (narrative: string, reason?: string) => void;
+  /** 核心引擎 2.0：可选，裁决完成后将剧情摘要写入向量记忆 */
+  vectorMemoryManager?: IVectorMemoryManager;
   /** 若存在，裁决结果应用后健康度≤0、殒命、60年或三国归晋时调用；(reason, lifeSummary?) */
   onGameOver?: (reason: string, lifeSummary?: string) => void;
 }
@@ -241,6 +295,20 @@ export function handleAdjudicationResult(
           worldChanges: ctx.requestPayload?.logical_results?.world_changes,
           effects: response.result?.effects
         });
+        if (ctx.vectorMemoryManager && saveData.meta?.playerId) {
+          const meta = {
+            npc_ids: "",
+            region_id: saveData.player?.location?.region ?? "",
+            year: saveData.world?.time?.year ?? 184,
+            session_id: saveData.meta.playerId
+          };
+          if (ctx.vectorMemoryManager.saveDialogueAndSummarize) {
+            const dialogue = `玩家：${ctx.requestPayload?.player_intent ?? ""}\n旁白：${text}`;
+            ctx.vectorMemoryManager.saveDialogueAndSummarize(dialogue.slice(0, 4000), meta).catch(() => {});
+          } else {
+            ctx.vectorMemoryManager.saveInteraction(text.slice(0, 300), meta).catch(() => {});
+          }
+        }
       }
       startTypewriter(text, isLongNarrative);
     })

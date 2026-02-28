@@ -10,19 +10,21 @@ import {
 } from "@config/index";
 import { resolveAspiration } from "./aspirationParser";
 import { bootstrapSanguoDb } from "../data/sanguoDb";
-import { handlePlayerAction } from "@core/actionHandler";
 import {
-  buildAdjudicationRequest,
+  prepareIntentPayload,
   applyTypewriterCompletion as applyTypewriterCompletionFlow,
   handleAdjudicationResult as handleAdjudicationResultFlow,
   type TypewriterCompletionContext,
   type HandleAdjudicationResultContext
 } from "./adjudicationFlow";
+import { noopVectorMemoryManager, getCloudVectorMemoryHandler, createVectorMemoryManagerFromCloud } from "@services/VectorMemoryManager";
 import {
   loadLatestSave as lifecycleLoadLatestSave,
   manualSave as lifecycleManualSave,
   onAppHide as lifecycleOnAppHide
 } from "./lifecycle";
+import { deleteVectorMemoryForSlotBeforeNewGame } from "./newGameVectorCleanup";
+import { getWorldManager } from "@core/WorldManager";
 import { formatLifeSummary } from "@core/historyLog";
 import {
   getLocalIntentType,
@@ -45,10 +47,14 @@ import {
   getActionGuideChipRects,
   getAttrHelpButtonRect,
   getGameOverRestartRect,
+  getDirectorContextLinkRect,
+  getDirectorContextModalCloseRect,
+  getAdvanceTimeButtonRect,
   invalidateDialogueCache,
   lastDialogueTotalHeight,
   renderScreen
 } from "@ui/renderer";
+import { getWorldNewsFeedHeaderRect } from "@ui/WorldNewsFeed";
 import {
   getStatusMenuButtonRect,
   getStatusMenuPopupRects
@@ -160,6 +166,16 @@ interface GameRuntime {
   splashPrivacyChecked?: boolean;
   /** 首页：是否正在显示「隐私和数据声明」弹窗（点击链接打开） */
   splashPrivacyModalVisible?: boolean;
+  /** 天下传闻区域是否展开 */
+  newsFeedExpanded?: boolean;
+  /** 导演模块调试：最近一次裁决请求的 event_context 摘要，供「查看上下文」展示 */
+  lastAdjudicationContext?: {
+    director_intent?: string;
+    origin_memory?: string;
+    regional_sensory?: string[];
+  };
+  /** 是否显示导演上下文弹窗 */
+  directorContextModalVisible?: boolean;
 }
 
 const runtime: GameRuntime = {
@@ -194,6 +210,13 @@ const runtime: GameRuntime = {
   attrsModalVisible: false
 };
 
+/** 向量记忆：USE_VECTOR_MEMORY 且云函数可用时走 Zilliz，否则 no-op */
+const _cloudVectorHandler = getCloudVectorMemoryHandler();
+const vectorMemoryManager =
+  ClientConfig.USE_VECTOR_MEMORY && _cloudVectorHandler
+    ? createVectorMemoryManagerFromCloud(_cloudVectorHandler)
+    : noopVectorMemoryManager;
+
 let initialized = false;
 let handlersRegistered = false;
 
@@ -225,6 +248,11 @@ function pointInRect(
   const left = rect.x ?? 0;
   const top = rect.y ?? 0;
   return x >= left && x <= left + rect.width && y >= top && y <= top + rect.height;
+}
+
+/** 收敛对 runtime 的写，便于后续加日志、快照或时间旅行调试 */
+function updateRuntime(patch: Partial<GameRuntime>): void {
+  Object.assign(runtime, patch);
 }
 
 function render(): void {
@@ -290,6 +318,13 @@ function render(): void {
       runtime.phase === "playing" && !hasUserSentOnce;
     renderState.inputHintText = INPUT_HINT_FIXED;
     renderState.playerName = runtime.currentSaveData?.player?.name?.trim();
+    renderState.identityLabel = runtime.currentSaveData?.player?.origin_label?.trim();
+    renderState.recentWorldReports = (runtime.currentSaveData?.tempData as Record<string, unknown> | undefined)
+      ?.recentWorldReports as string[] | undefined;
+    renderState.newsFeedExpanded = runtime.newsFeedExpanded ?? false;
+    renderState.lastAdjudicationContext = runtime.lastAdjudicationContext;
+    renderState.directorContextModalVisible = runtime.directorContextModalVisible ?? false;
+    renderState.debugDirectorUI = ClientConfig.DEBUG;
     if (w && w.year > (runtime.lastDisplayedYearForBanner ?? 0)) {
       runtime.yearChangeFlashUntil = Date.now() + 600;
       runtime.lastDisplayedYearForBanner = w.year;
@@ -313,8 +348,7 @@ function render(): void {
         !typewriter?.getState()
       ) {
         const maxScroll = Math.max(0, lastDialogueTotalHeight - areaContentHeight);
-        runtime.dialogueScrollOffset = maxScroll;
-        runtime.appliedInitialDialogueScrollTop = true;
+        updateRuntime({ dialogueScrollOffset: maxScroll, appliedInitialDialogueScrollTop: true });
       }
     }
     return;
@@ -352,10 +386,12 @@ function updateSuggestedActions(): void {
   const [a, b] = getSuggestedActions(region, scene, stamina, {
     saveData: runtime.currentSaveData
   });
-  runtime.suggestedActions = [
-    { text: a, is_aspiration_focused: false },
-    { text: b, is_aspiration_focused: false }
-  ];
+  updateRuntime({
+    suggestedActions: [
+      { text: a, is_aspiration_focused: false },
+      { text: b, is_aspiration_focused: false }
+    ]
+  });
 }
 
 /** 单一数据源：对话权威在 currentSaveData.dialogueHistory，此处将 runtime 同步为副本 */
@@ -365,6 +401,47 @@ function syncDialogueToRuntime(): void {
     runtime.currentSaveData.dialogueHistory.length > 0
       ? [...runtime.currentSaveData.dialogueHistory]
       : [...INITIAL_DIALOGUE];
+}
+
+/** 推进时间（+7天）测试按钮：按天气生成一条环境感应台词 */
+const WEATHER_ECHO: Record<string, string> = {
+  冬雪: "这雪越下越大了，将军请入内说话。",
+  春雨: "春雨绵绵，路上泥泞，客官当心脚下。",
+  夏暑: "日头正毒，不妨到树荫下歇歇脚。",
+  秋燥: "秋风起，落叶纷飞，又是一年将尽。",
+  雪: "这雪越下越大了，将军请入内说话。",
+  雨: "雨势不小，且进檐下避一避。",
+  晴: "天色正好，正宜赶路。",
+  阴: "天色阴沉，恐有风雨，早做打算为好。"
+};
+
+function advanceTimeBy7Days(): void {
+  if (!runtime.currentSaveData || !runtime.layout) return;
+  const saveData = runtime.currentSaveData;
+  const { world, npcs, reports } = getWorldManager().updateWorld(saveData, 7);
+  saveData.world = world;
+  saveData.npcs = npcs;
+  if (!saveData.tempData) saveData.tempData = {};
+  (saveData.tempData as Record<string, unknown>).recentWorldReports = reports;
+  if (reports.length > 0 && vectorMemoryManager.literarizeAndSaveRumors && saveData.meta?.playerId) {
+    vectorMemoryManager
+      .literarizeAndSaveRumors(reports, {
+        npc_ids: "",
+        region_id: saveData.player?.location?.region ?? "",
+        year: saveData.world?.time?.year ?? 184,
+        session_id: saveData.meta.playerId
+      })
+      .catch(() => {});
+  }
+  const weather = saveData.world?.regions?.[saveData.player?.location?.region ?? ""]?.weather ?? "晴";
+  const echoLine = WEATHER_ECHO[weather] ?? "时光流转，七日已过。";
+  saveManager.addDialogueHistory(saveData, [echoLine]);
+  syncDialogueToRuntime();
+  updateGameDataFromSave();
+  autoSave();
+  invalidateDialogueCache();
+  render();
+  scheduleScrollToBottom();
 }
 
 /**
@@ -380,10 +457,10 @@ function appendDialogueAndSync(content: string | string[]): void {
   }
 }
 
-/** 移除最后一条对话（与 appendDialogueAndSync 配套，用于手动存档 5s 后移除提示、dropWaitingPlaceholder） */
+/** 移除最后一条对话（与 appendDialogueAndSync 配套；单一数据源：经 saveManager.removeLastDialogue） */
 function removeLastAndSync(): void {
   if (runtime.currentSaveData?.dialogueHistory?.length) {
-    runtime.currentSaveData.dialogueHistory.pop();
+    saveManager.removeLastDialogue(runtime.currentSaveData);
     syncDialogueToRuntime();
   } else {
     removeLast(runtime.dialogueHistory);
@@ -442,9 +519,7 @@ function getTypewriterCompletionContext(): TypewriterCompletionContext {
     updateWorldState: (saveData, worldDelta) => saveManager.updateWorldState(saveData, worldDelta),
     autoSave,
     syncFromSave: updateGameDataFromSave,
-    setSuggestedActions: (actions) => {
-      runtime.suggestedActions = actions;
-    },
+    setSuggestedActions: (actions) => updateRuntime({ suggestedActions: actions }),
     requestRewardedAd,
     playAmbientAudio
   };
@@ -461,7 +536,7 @@ function applyTypewriterCompletion(
 function scheduleScrollToBottom(): void {
   nextFrame(() => {
     render();
-    runtime.targetScrollOffset = 0;
+    updateRuntime({ targetScrollOffset: 0 });
   });
 }
 
@@ -470,11 +545,10 @@ function handleAdjudicationResult(
   requestPayload?: AdjudicationRequest
 ): void {
   const setDialogueScrollOffset = (n: number) => {
-    runtime.dialogueScrollOffset = n;
-    runtime.targetScrollOffset = null;
+    updateRuntime({ dialogueScrollOffset: n, targetScrollOffset: null });
   };
   const setDialogueScrollOffsetAnimated = (target: number) => {
-    runtime.targetScrollOffset = target;
+    updateRuntime({ targetScrollOffset: target });
   };
   const scrollToBottomAnimated = () => {
     nextFrame(() => {
@@ -504,9 +578,9 @@ function handleAdjudicationResult(
     completionContext: getTypewriterCompletionContext(),
     sanitizeNarrative,
     recordSanitizeFailure,
+    vectorMemoryManager: vectorMemoryManager,
     onGameOver: (reason, lifeSummary) => {
-      runtime.gameOverReason = reason;
-      runtime.gameOverLifeSummary = lifeSummary ?? "";
+      updateRuntime({ gameOverReason: reason, gameOverLifeSummary: lifeSummary ?? "" });
       const msg = `【游戏结束】${reason}，所有游戏终止。请重新开始。`;
       appendDialogueAndSync(msg);
       if (lifeSummary) {
@@ -775,10 +849,9 @@ function updateScrollTween(): void {
   const cur = runtime.dialogueScrollOffset;
   const next = cur + (target - cur) * SCROLL_TWEEN_FACTOR;
   if (Math.abs(next - target) < SCROLL_TWEEN_EPS) {
-    runtime.dialogueScrollOffset = target;
-    runtime.targetScrollOffset = null;
+    updateRuntime({ dialogueScrollOffset: target, targetScrollOffset: null });
   } else {
-    runtime.dialogueScrollOffset = next;
+    updateRuntime({ dialogueScrollOffset: next });
   }
 }
 
@@ -816,9 +889,8 @@ export function handleTouchMove(event: TouchEvent): void {
   const areaContentHeight = area.height - 28;
   const maxScroll = Math.max(0, lastDialogueTotalHeight - areaContentHeight);
   const deltaY = pt.y - runtime.touchStartY;
-  runtime.dialogueScrollOffset = Math.max(0, Math.min(maxScroll, runtime.touchStartScroll + deltaY));
-  runtime.touchStartY = pt.y;
-  runtime.touchStartScroll = runtime.dialogueScrollOffset;
+  const newScroll = Math.max(0, Math.min(maxScroll, runtime.touchStartScroll + deltaY));
+  updateRuntime({ dialogueScrollOffset: newScroll, touchStartY: pt.y, touchStartScroll: newScroll });
 }
 
 export function handleTouchEnd(event: TouchEvent): void {
@@ -891,7 +963,7 @@ export function handleTouch(event: TouchEvent): void {
     return;
   }
   if (runtime.phase === "playing" && runtime.attrsModalVisible) {
-    runtime.attrsModalVisible = false;
+    updateRuntime({ attrsModalVisible: false });
     render();
     return;
   }
@@ -907,34 +979,61 @@ export function handleTouch(event: TouchEvent): void {
     return;
   }
   if (runtime.phase === "playing" && runtime.historyModalVisible) {
-    runtime.historyModalVisible = false;
+    updateRuntime({ historyModalVisible: false });
     render();
     return;
   }
   if (runtime.phase === "playing" && runtime.statusMenuVisible) {
     const popup = getStatusMenuPopupRects(runtime.layout);
     if (pointInRect(popup.history, x, y)) {
-      runtime.statusMenuVisible = false;
-      runtime.historyModalVisible = true;
+      updateRuntime({ statusMenuVisible: false, historyModalVisible: true });
       render();
       return;
     }
     if (pointInRect(popup.restart, x, y)) {
-      runtime.statusMenuVisible = false;
+      updateRuntime({ statusMenuVisible: false });
       promptRestartConfirm();
       render();
       return;
     }
-    runtime.statusMenuVisible = false;
+    updateRuntime({ statusMenuVisible: false });
     render();
     return;
+  }
+  if (runtime.phase === "playing" && runtime.directorContextModalVisible) {
+    if (pointInRect(getDirectorContextModalCloseRect(runtime.screenWidth, runtime.screenHeight), x, y)) {
+      updateRuntime({ directorContextModalVisible: false });
+      render();
+    }
+    return;
+  }
+  if (runtime.phase === "playing" && runtime.layout && ClientConfig.DEBUG) {
+    const advanceRect = getAdvanceTimeButtonRect(runtime.layout);
+    if (pointInRect(advanceRect, x, y)) {
+      advanceTimeBy7Days();
+      return;
+    }
+    const ctxLinkRect = getDirectorContextLinkRect(runtime.layout);
+    if (pointInRect(ctxLinkRect, x, y) && runtime.lastAdjudicationContext) {
+      updateRuntime({ directorContextModalVisible: true });
+      render();
+      return;
+    }
+    if (runtime.layout.worldNewsFeed) {
+      const feedHeader = getWorldNewsFeedHeaderRect(runtime.layout.worldNewsFeed);
+      if (pointInRect(feedHeader, x, y)) {
+        updateRuntime({ newsFeedExpanded: !(runtime.newsFeedExpanded ?? false) });
+        render();
+        return;
+      }
+    }
   }
   if (typewriter?.getState() && typewriter.skip()) return;
   const { inputArea, statusPanel, dialogueArea, actionGuideSlot } = runtime.layout;
 
   const menuBtnRect = getStatusMenuButtonRect(runtime.layout);
   if (pointInRect(menuBtnRect, x, y)) {
-    runtime.statusMenuVisible = true;
+    updateRuntime({ statusMenuVisible: true });
     render();
     return;
   }
@@ -953,16 +1052,13 @@ export function handleTouch(event: TouchEvent): void {
   }
 
   if (pointInRect(dialogueArea, x, y)) {
-    runtime.targetScrollOffset = null;
-    runtime.isDialogueScrollActive = true;
-    runtime.touchStartY = y;
-    runtime.touchStartScroll = runtime.dialogueScrollOffset;
+    updateRuntime({ targetScrollOffset: null, isDialogueScrollActive: true, touchStartY: y, touchStartScroll: runtime.dialogueScrollOffset });
     return;
   }
 
   const attrHelpRect = getAttrHelpButtonRect(runtime.layout);
   if (pointInRect(statusPanel, x, y) && pointInRect(attrHelpRect, x, y)) {
-    runtime.attrsModalVisible = true;
+    updateRuntime({ attrsModalVisible: true });
     render();
     return;
   }
@@ -992,30 +1088,46 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
   render();
   if (!skipAppendPlayerLine) scheduleScrollToBottom();
 
-  runtime.isAdjudicating = true;
-  let payload = buildAdjudicationRequest(runtime.currentSaveData, trimmed);
-  payload = handlePlayerAction(payload, runtime.currentSaveData);
-  if (payload.event_context?.consecutive_level1_count != null && runtime.currentSaveData?.tempData) {
-    (runtime.currentSaveData.tempData as Record<string, unknown>).consecutive_level1_count =
-      payload.event_context.consecutive_level1_count;
-  }
-  const apiUrl = ClientConfig.ADJUDICATION_API;
-  const isLocalhost = /localhost|127\.0\.0\.1/.test(apiUrl);
-  const isDevice = typeof wx !== "undefined" && ["android", "ios"].includes(String(wx.getSystemInfoSync?.()?.platform ?? "").toLowerCase());
-  const useCloud = Boolean(typeof wx !== "undefined" && (wx as { cloud?: { callFunction?: unknown } }).cloud?.callFunction && ClientConfig.CLOUD_ENV);
-
-  if (ClientConfig.DEBUG && payload.event_context) {
-    console.log("[adjudication] request event_context（可复制到控制台查看）:", JSON.stringify(payload.event_context, null, 2));
-  }
-
-  if (isLocalhost && isDevice && !useCloud) {
-    dropWaitingPlaceholder();
-    simulateAdjudication(trimmed);
-    runtime.isAdjudicating = false;
-    return;
-  }
-
+  updateRuntime({ isAdjudicating: true });
+  let payload: AdjudicationRequest | undefined;
   try {
+    payload = await prepareIntentPayload(runtime.currentSaveData, trimmed, vectorMemoryManager);
+    if (!payload) {
+      updateRuntime({ isAdjudicating: false });
+      return;
+    }
+    if (ClientConfig.DEBUG && payload.event_context) {
+      updateRuntime({
+        lastAdjudicationContext: {
+          director_intent:
+            typeof payload.event_context.director_intent === "string"
+              ? payload.event_context.director_intent
+              : undefined,
+          origin_memory: Array.isArray(payload.event_context.vector_memories)
+            ? payload.event_context.vector_memories[0]
+            : undefined,
+          regional_sensory: Array.isArray(payload.event_context.region_sensory)
+            ? payload.event_context.region_sensory
+            : undefined
+        }
+      });
+    }
+    const apiUrl = ClientConfig.ADJUDICATION_API;
+    const isLocalhost = /localhost|127\.0\.0\.1/.test(apiUrl);
+    const isDevice = typeof wx !== "undefined" && ["android", "ios"].includes(String(wx.getSystemInfoSync?.()?.platform ?? "").toLowerCase());
+    const useCloud = Boolean(typeof wx !== "undefined" && (wx as { cloud?: { callFunction?: unknown } }).cloud?.callFunction && ClientConfig.CLOUD_ENV);
+
+    if (ClientConfig.DEBUG && payload.event_context) {
+      console.log("[adjudication] request event_context（可复制到控制台查看）:", JSON.stringify(payload.event_context, null, 2));
+    }
+
+    if (isLocalhost && isDevice && !useCloud) {
+      dropWaitingPlaceholder();
+      simulateAdjudication(trimmed);
+      updateRuntime({ isAdjudicating: false });
+      return;
+    }
+
     const response = await callAdjudication(payload);
     if (ClientConfig.DEBUG && response.result) {
       const nar = response.result.narrative;
@@ -1030,8 +1142,7 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
     handleAdjudicationResult(response, payload);
   } catch (error) {
     dropWaitingPlaceholder();
-    runtime.dialogueScrollOffset = 0;
-    runtime.targetScrollOffset = null;
+    updateRuntime({ dialogueScrollOffset: 0, targetScrollOffset: null });
     recordAdjudicationFailure(payload, error);
     const errMsg = error instanceof Error ? error.message : "裁决请求失败";
     // 裁决失败/超时的唯一提示与重试入口：此处统一处理，用户可输入「重试」再次发送上一条意图
@@ -1042,7 +1153,7 @@ async function submitIntentForAdjudication(trimmed: string, skipAppendPlayerLine
     scheduleScrollToBottom();
     console.warn("裁决 API 调用失败:", error);
   } finally {
-    runtime.isAdjudicating = false;
+    updateRuntime({ isAdjudicating: false });
   }
 }
 
@@ -1068,6 +1179,13 @@ export async function submitInput(): Promise<void> {
       runtime.currentSaveData.player = { ...DEFAULT_PLAYER_STATE };
     }
     runtime.currentSaveData.player.aspiration = aspiration;
+    const originText = aspiration?.destiny_goal ?? trimmed;
+    if (originText) {
+      runtime.currentSaveData.player.origin_label = originText.slice(0, 24).trim();
+      if (vectorMemoryManager.saveOriginSetting && runtime.currentSaveData.meta?.playerId) {
+        vectorMemoryManager.saveOriginSetting(originText, { session_id: runtime.currentSaveData.meta.playerId }).catch(() => {});
+      }
+    }
     saveManager.addDialogueHistory(runtime.currentSaveData, [trimmed]);
     syncDialogueToRuntime();
     clearInput(runtime.input);
@@ -1100,8 +1218,7 @@ export async function submitInput(): Promise<void> {
     hideKeyboard();
     setKeyboardVisible(runtime.input, false);
     const lifeSummary = formatLifeSummary(runtime.currentSaveData);
-    runtime.gameOverReason = "退隐江湖";
-    runtime.gameOverLifeSummary = lifeSummary;
+    updateRuntime({ gameOverReason: "退隐江湖", gameOverLifeSummary: lifeSummary });
     appendDialogueAndSync("【游戏结束】退隐江湖，所有游戏终止。请重新开始。");
     appendDialogueAndSync("【玩家生平】");
     appendDialogueAndSync(lifeSummary || "（暂无大事记）");
@@ -1151,16 +1268,18 @@ export function restartGame(): void {
   hideKeyboard();
   invalidateDialogueCache();
   typewriter?.clear();
-  runtime.creationForm = { ...DEFAULT_CREATION_FORM };
-  runtime.phase = "characterCreation";
-  runtime.currentSaveData = null;
-  runtime.dialogueHistory = [...INITIAL_DIALOGUE];
-  runtime.dialogueScrollOffset = 0;
-  runtime.targetScrollOffset = null;
-  runtime.appliedInitialDialogueScrollTop = false;
-  runtime.attrsModalVisible = false;
-  runtime.gameOverReason = undefined;
-  runtime.gameOverLifeSummary = undefined;
+  updateRuntime({
+    creationForm: { ...DEFAULT_CREATION_FORM },
+    phase: "characterCreation",
+    currentSaveData: null,
+    dialogueHistory: [...INITIAL_DIALOGUE],
+    dialogueScrollOffset: 0,
+    targetScrollOffset: null,
+    appliedInitialDialogueScrollTop: false,
+    attrsModalVisible: false,
+    gameOverReason: undefined,
+    gameOverLifeSummary: undefined
+  });
   render();
 }
 
@@ -1172,6 +1291,8 @@ function confirmCharacterCreation(): void {
     }
     return;
   }
+  // 新游戏覆盖槽位 0 前，删除该槽位旧存档的向量记忆，实现「重新开始即清空历史」
+  deleteVectorMemoryForSlotBeforeNewGame(saveManager, vectorMemoryManager, 0).catch(() => {});
   const newSave = saveManager.createNewSaveWithConfig(0, form.name.trim(), {
     name: form.name.trim(),
     gender: form.gender,
@@ -1179,12 +1300,14 @@ function confirmCharacterCreation(): void {
   });
   newSave.dialogueHistory = [ASPIRATION_QUESTION];
   saveManager.save(newSave, false);
-  runtime.currentSaveData = newSave;
-  runtime.dialogueHistory = [ASPIRATION_QUESTION];
-  runtime.dialogueScrollOffset = 0;
-  runtime.targetScrollOffset = null;
-  runtime.appliedInitialDialogueScrollTop = false;
-  runtime.phase = "aspirationSetting";
+  updateRuntime({
+    currentSaveData: newSave,
+    dialogueHistory: [ASPIRATION_QUESTION],
+    dialogueScrollOffset: 0,
+    targetScrollOffset: null,
+    appliedInitialDialogueScrollTop: false,
+    phase: "aspirationSetting"
+  });
   updateGameDataFromSave();
   invalidateDialogueCache();
   render();

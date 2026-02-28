@@ -3,8 +3,9 @@
  * 需同时设置 ADJUDICATION_API 与 DEEPSEEK_API_KEY（或 HUNYUAN_API_KEY）才会执行。
  *
  * 运行方式：
- *   1) 推荐：在项目根目录建 .env（参考 .env.example），写 ADJUDICATION_API 和 DEEPSEEK_API_KEY，然后 npm run playtest
- *   2) 或临时：ADJUDICATION_API=xxx DEEPSEEK_API_KEY=xxx npm run playtest
+ *   1) 默认 npm run test 会跳过本用例；需显式开启：RUN_PLAYTEST=1 npm run playtest（或 RUN_PLAYTEST=1 npm run test -- tests/playtestWithAITest.test.ts）
+ *   2) 推荐：在项目根目录建 .env，写 ADJUDICATION_API、DEEPSEEK_API_KEY，并设 RUN_PLAYTEST=1 后执行 npm run playtest
+ *   3) 或临时：RUN_PLAYTEST=1 ADJUDICATION_API=xxx DEEPSEEK_API_KEY=xxx npm run playtest
  *   3) 深度叙事压力测试（四深水区，每画像最多 100 轮）：PLAYTEST_DEEP=1 npm run playtest 或 npm run playtest:deep
  *   4) 叙事质量专项（留白 30 轮 + 逻辑阻力 50 轮 + 蝴蝶效应 80 轮）：PLAYTEST_QUALITY=1 npm run playtest 或 npm run playtest:quality
  *   5) 系统防御力与越狱压力测试（身份穿透/价值观/第四面墙/逻辑死循环，最多 80 轮）：npm run playtest:jailbreak
@@ -17,11 +18,13 @@ import "dotenv/config";
 import { describe, expect, it } from "vitest";
 import { runPlaytest, type DebuffType } from "./playtest/runner";
 
+/** 显式开启时才跑（避免默认 npm run test 因无裁决服务而失败） */
+const runPlaytestEnabled = Boolean(process.env.RUN_PLAYTEST === "1" || process.env.RUN_PLAYTEST === "true");
 const hasAdjudication = Boolean(process.env.ADJUDICATION_API?.trim());
 const hasTestAIKey = Boolean(
   process.env.DEEPSEEK_API_KEY?.trim() || process.env.HUNYUAN_API_KEY?.trim()
 );
-const skip = !hasAdjudication || !hasTestAIKey;
+const skip = !runPlaytestEnabled || !hasAdjudication || !hasTestAIKey;
 
 /** 预设玩家性格偏好（画像）：用于多画像顺序跑测。目标之一为将时间线推到约 230 年，观察中后期剧情。 */
 export const PLAYTEST_PERSONAS = [

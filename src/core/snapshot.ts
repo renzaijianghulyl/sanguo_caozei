@@ -17,6 +17,9 @@ import { PROMPT_KEYS } from "../agents/prompts";
 import { getRecentHistoryLogs } from "@core/historyLog";
 import { getLogicDbContext } from "../data/sanguoDb";
 import { buildSnapshotInstructions } from "./eventContextPipeline";
+import { getChineseYear } from "./TimeManager";
+import { getWeatherForMonth } from "./WorldStateManager";
+import { calendarToTotalDays } from "./TimeManager";
 
 /** 根据志向与头衔生成玩法权重说明，供裁决时动态调整 Prompt 权重 */
 function buildPlaystyleContext(player: PlayerState): string {
@@ -39,6 +42,8 @@ export interface SnapshotInput {
   saveData: GameSaveData | null;
   playerIntent: string;
   recentDialogue?: string[];
+  /** 核心引擎 2.0：对话前检索到的相关记忆，可选 */
+  relevantMemories?: string[];
 }
 
 /**
@@ -126,7 +131,8 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
   const {
     saveData,
     playerIntent,
-    recentDialogue = saveData?.dialogueHistory?.slice(-5) ?? []
+    recentDialogue = saveData?.dialogueHistory?.slice(-5) ?? [],
+    relevantMemories
   } = input;
 
   if (saveData) applyDecay(saveData);
@@ -134,6 +140,16 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
   const playerState: PlayerState = saveData?.player ?? DEFAULT_PLAYER_STATE;
   const worldState: WorldState = saveData?.world ?? DEFAULT_WORLD_STATE;
   const year = worldState.time?.year ?? 184;
+  const time = worldState.time ?? { year: 184, month: 1, day: 1 };
+  const totalDays =
+    worldState.totalDays ?? calendarToTotalDays(time.year, time.month, time.day ?? 1);
+  const engineWorldContext = {
+    year: time.year,
+    month: time.month,
+    chineseYear: getChineseYear(totalDays),
+    weather: getWeatherForMonth(time.month)
+  };
+
   const logic_db = getLogicDbContext(year);
 
   let npcState: NPCState[] = saveData?.npcs ?? DEFAULT_NPC_STATE;
@@ -152,7 +168,6 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
   eventContext.consecutive_level1_count =
     (saveData?.tempData as Record<string, unknown>)?.consecutive_level1_count ?? 0;
 
-  const time = worldState.time ?? { year: 184, month: 1, day: 1 };
   eventContext.season_sensory = getSeasonSensoryDescription(time);
   eventContext.env_sensory_instruction = getPrompt(PROMPT_KEYS.ENV_SENSORY) ?? "";
 
@@ -171,6 +186,8 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
     playerState.ambition || (playerState as { active_titles?: string[] }).active_titles?.length
       ? buildPlaystyleContext(playerState)
       : undefined;
+  const worldReports = (saveData?.tempData as Record<string, unknown> | undefined)?.recentWorldReports as string[] | undefined;
+  const currentRegionWeather = currentRegionKey ? worldState.regions?.[currentRegionKey]?.weather : undefined;
   const instructions = buildSnapshotInstructions({
     saveData,
     playerState,
@@ -178,7 +195,11 @@ export function buildAdjudicationPayload(input: SnapshotInput): AdjudicationRequ
     playerIntent,
     logic_db,
     dialogueRounds,
-    playstyleContext
+    playstyleContext,
+    engineWorldContext,
+    relevantMemories,
+    worldReports: Array.isArray(worldReports) ? worldReports : undefined,
+    currentRegionWeather
   });
   Object.assign(eventContext, instructions);
 

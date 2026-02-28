@@ -11,7 +11,11 @@ export interface UILayout {
   contentWidthTop: number;
   /** 顶部状态区：上行为信息模块+菜单，下行为属性行（全宽） */
   statusPanel: UIRect;
+  /** 世界感知状态栏：时钟 / 环境 / 感官短语，位于状态栏与对话区之间 */
+  worldStatusBar: UIRect;
   dialogueArea: UIRect;
+  /** 天下传闻（战报流）：可折叠，位于对话区与行动引导槽之间 */
+  worldNewsFeed: UIRect;
   /** 行动引导槽：3 个可选动作按钮，位于对话区与输入区之间 */
   actionGuideSlot: UIRect;
   inputArea: UIRect;
@@ -78,6 +82,8 @@ export function createUILayout(
   const gap = Math.max(10, Math.round(screenHeightVal * 0.012));
 
   const statusPanelHeight = Math.max(126, Math.min(146, Math.round(screenHeightVal * 0.18)));
+  const worldStatusBarHeight = Math.max(28, Math.min(36, Math.round(screenHeightVal * 0.04)));
+  const worldNewsFeedHeight = Math.max(72, Math.min(88, Math.round(screenHeightVal * 0.11)));
   const inputAreaHeight = Math.max(58, Math.min(72, Math.round(screenHeightVal * 0.09)));
   const actionGuideHeight = Math.max(52, Math.min(60, Math.round(screenHeightVal * 0.075)));
 
@@ -86,6 +92,13 @@ export function createUILayout(
     y: safeMargin + topInset,
     width: contentWidthMain,
     height: statusPanelHeight
+  };
+
+  const worldStatusBar: UIRect = {
+    x: safeMargin,
+    y: statusPanel.y + statusPanel.height + gap,
+    width: contentWidthMain,
+    height: worldStatusBarHeight
   };
 
   const inputArea: UIRect = {
@@ -102,18 +115,27 @@ export function createUILayout(
     height: actionGuideHeight
   };
 
+  const worldNewsFeed: UIRect = {
+    x: safeMargin,
+    y: actionGuideSlot.y - gap - worldNewsFeedHeight,
+    width: contentWidthMain,
+    height: worldNewsFeedHeight
+  };
+
   const dialogueArea: UIRect = {
     x: safeMargin,
-    y: statusPanel.y + statusPanel.height + gap,
+    y: worldStatusBar.y + worldStatusBar.height + gap,
     width: contentWidthMain,
-    height: actionGuideSlot.y - (statusPanel.y + statusPanel.height) - gap * 2
+    height: worldNewsFeed.y - (worldStatusBar.y + worldStatusBar.height) - gap * 2
   };
 
   return {
     safeMargin,
     contentWidthTop,
     statusPanel,
+    worldStatusBar,
     dialogueArea,
+    worldNewsFeed,
     actionGuideSlot,
     inputArea,
     capsuleCenterY,

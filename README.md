@@ -39,10 +39,12 @@ npm run test
 2. 将 `dist/` 内容（含 `game.min.js`, `main.min.js`, `save.min.js`, `config.min.js`, `game.json`）复制或压缩
 3. 在微信开发者工具中导入 `dist/` 或整个仓库目录
 
-### 内容 / 剧情协作者指南
+### 文档与协作
 
-- `docs/content_tasks.md`：列出内容侧待办
-- `src/agents/prompts.ts` & `src/core/contentRegistry.ts`：提供 prompt 注册及事件 JSON 的占位接口
-- 工程侧只依赖注册表返回的数据，内容侧可独立提交 `.json` 或 prompt 更新
+- **项目总览**：`docs/项目介绍与技术架构.md`（目录结构、数据流、云函数、构建与部署）。
+- **重构与优化**：`docs/重构后整理与架构优化报告.md`（本次整理说明与架构师视角的优化建议）。
+- **内容与 Prompt**：`src/agents/prompts.ts` 与 `src/core/contentRegistry.ts` 提供 prompt 注册及实体校验；内容侧可独立提交 `.json` 或 prompt 更新。
 
-如需手动同步包体，可参考 `temp_package/需求与框架/手动同步指南.md`。
+### Playtest（AI 内测玩家）
+
+- 默认 `npm run test` **不执行** playtest（需裁决服务与 API Key）。显式开启：`RUN_PLAYTEST=1 npm run playtest`。

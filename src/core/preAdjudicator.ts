@@ -1,5 +1,6 @@
 import type { AdjudicationRequest, LogicalResults, LogicOverride } from "@services/network/adjudication";
 import type { WorldState } from "@core/state";
+import { calendarToTotalDays } from "@core/TimeManager";
 import { getEmotionalBrief } from "@core/BondSystem";
 import {
   getEventsInRange,
@@ -220,7 +221,8 @@ function advanceWorldTimeByMonths(
       year: newYear,
       month: newMonth,
       day: Math.min(day, 28)
-    }
+    },
+    totalDays: calendarToTotalDays(newYear, newMonth, Math.min(day, 28))
   };
 
   const events = getEventsInRange(fromYear, toYear);

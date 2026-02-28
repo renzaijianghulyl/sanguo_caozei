@@ -38,7 +38,12 @@ const define = {
   "process.env.DEBUG_TOUCH": JSON.stringify(
     process.env.DEBUG_TOUCH === "1" || process.env.DEBUG_TOUCH === "true" ? "true" : "false"
   ),
-  "process.env.AD_UNIT_ID": JSON.stringify(process.env.AD_UNIT_ID || "adunit-1234567890abcdef")
+  "process.env.AD_UNIT_ID": JSON.stringify(process.env.AD_UNIT_ID || "adunit-1234567890abcdef"),
+  "process.env.USE_VECTOR_MEMORY": JSON.stringify(
+    process.env.USE_VECTOR_MEMORY === "true" || process.env.USE_VECTOR_MEMORY === "1" ? "true" : "false"
+  ),
+  "__USE_VECTOR_MEMORY__":
+    process.env.USE_VECTOR_MEMORY === "true" || process.env.USE_VECTOR_MEMORY === "1" ? '"true"' : '"false"'
 };
 
 function ensureDir(dirPath) {

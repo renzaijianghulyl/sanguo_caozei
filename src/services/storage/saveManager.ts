@@ -15,8 +15,29 @@ import type {
   WorldState
 } from "@core/state";
 import { ensureBond } from "@core/RelationManager";
+import { calendarToTotalDays } from "@core/TimeManager";
 
 const SAVE_VERSION = "1.0.0";
+
+/** 存档服务接口：便于单测注入 MockSaveManager，gameApp/lifecycle 可依赖此接口 */
+export interface ISaveManager {
+  load(slot?: number): GameSaveData | null;
+  save(saveData: GameSaveData, isAuto?: boolean): boolean;
+  addDialogueHistory(saveData: GameSaveData, content: string | string[]): GameSaveData;
+  removeLastDialogue(saveData: GameSaveData): void;
+  updatePlayerAttributes(
+    saveData: GameSaveData,
+    delta: Partial<{
+      attrs: Partial<PlayerState["attrs"]>;
+      legend: number;
+      reputation: number;
+      fame: number;
+      infamy: number;
+      resources: Partial<PlayerState["resources"]>;
+    }>
+  ): GameSaveData;
+  updateWorldState(saveData: GameSaveData, delta: Partial<WorldState>): GameSaveData;
+}
 
 /** 存档迁移：Bond 新字段、history_flags、active_titles 等，保证旧档可读 */
 function migrateSaveData(data: GameSaveData): GameSaveData {
@@ -32,6 +53,14 @@ function migrateSaveData(data: GameSaveData): GameSaveData {
   }
   if (data.history_logs === undefined) {
     (data as GameSaveData).history_logs = [];
+  }
+  if (world && world.time && world.totalDays === undefined) {
+    const t = world.time;
+    (world as WorldState).totalDays = calendarToTotalDays(
+      t.year ?? 184,
+      t.month ?? 1,
+      t.day ?? 1
+    );
   }
   if (data.npcs?.length) {
     data.npcs.forEach((npc) => ensureBond(npc, worldTime));
@@ -142,7 +171,7 @@ function createDefaultSave(): GameSaveData {
   };
 }
 
-export class SaveManager {
+export class SaveManager implements ISaveManager {
   private currentSlot = 0;
   private autoSaveEnabled = true;
   private autoSaveInterval = 20;
@@ -500,6 +529,8 @@ export class SaveManager {
     }
     if (delta.time) {
       saveData.world.time = { ...saveData.world.time, ...delta.time };
+      const t = saveData.world.time;
+      saveData.world.totalDays = calendarToTotalDays(t.year, t.month ?? 1, t.day ?? 1);
     }
     if (delta.regions) {
       saveData.world.regions = saveData.world.regions || {};
@@ -526,6 +557,12 @@ export class SaveManager {
       saveData.dialogueHistory = saveData.dialogueHistory.slice(-this.storageLimits.maxDialogueHistory);
     }
     return saveData;
+  }
+
+  /** 移除最后一条对话（单一数据源：对话删除经此入口，避免直接改 saveData.dialogueHistory） */
+  removeLastDialogue(saveData: GameSaveData): void {
+    if (!saveData?.dialogueHistory?.length) return;
+    saveData.dialogueHistory.pop();
   }
 
   startAutoSave(): void {

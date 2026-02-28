@@ -1,5 +1,6 @@
 import type { AmbitionType, GameSaveData, NPCState, PlayerState, WorldState, PrimaryGoalType } from "@core/state";
 import { initBondEngine } from "../core/BondSystem";
+import { calendarToTotalDays } from "../core/TimeManager";
 
 export const DEFAULT_PLAYER_STATE: PlayerState = {
   id: "player_001",
@@ -37,6 +38,7 @@ export const DEFAULT_WORLD_STATE: WorldState = {
     month: 2,
     day: 1
   },
+  totalDays: calendarToTotalDays(184, 2, 1),
   regionStatus: {
     jingzhou: "stable",
     yuzhou: "turmoil",
@@ -62,7 +64,8 @@ export const REGION_DISPLAY_NAMES: Record<string, string> = {
   jingzhou: "荆州",
   jizhou: "冀州",
   yuzhou: "豫州",
-  zhuoxian: "涿县"
+  zhuoxian: "涿县",
+  chenliu: "陈留"
 };
 export const SCENE_DISPLAY_NAMES: Record<string, string> = {
   village: "村庄",
@@ -285,6 +288,7 @@ export const TIME_SKIP_NARRATIVE_INSTRUCTION =
 export const DEFAULT_NPC_STATE: NPCState[] = initBondEngine(184);
 
 /** 安全读取环境变量，微信小游戏无 process 时不抛错（不直接引用 process 避免 ReferenceError） */
+declare const __USE_VECTOR_MEMORY__: string | undefined;
 const _env: Record<string, string | undefined> = (() => {
   try {
     const g = typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : {});
@@ -298,6 +302,10 @@ const _env: Record<string, string | undefined> = (() => {
 export const ClientConfig = {
   /** 云开发环境 ID，用于 wx.cloud.callFunction。在云开发控制台标题栏可见 */
   CLOUD_ENV: _env.CLOUD_ENV || "cloud1-3gfb9ep2701c4857",
+  /** 为 true 时启用向量记忆（调用云函数 vectorMemory）；需同时部署 vectorMemory 并配置 Zilliz/DeepSeek 环境变量。构建时 USE_VECTOR_MEMORY=true 会注入 */
+  USE_VECTOR_MEMORY:
+    _env.USE_VECTOR_MEMORY === "true" ||
+    (typeof __USE_VECTOR_MEMORY__ !== "undefined" && __USE_VECTOR_MEMORY__ === "true"),
   /** HTTP 模式时的裁决 API 地址；使用云函数时可留空 */
   ADJUDICATION_API: _env.ADJUDICATION_API || "http://localhost:3000/intent/resolve",
   MAX_RETRIES: 2,

@@ -180,6 +180,24 @@ function buildUserPrompt(payload) {
     parts.push(`【羁绊·物是人非】${safeStr(event_context.bond_emotional_instruction)}`);
   }
 
+  if (event_context?.world_context?.length > 0) {
+    parts.push(`【天下传闻】${safeJoin(event_context.world_context, "；")}`);
+    if (event_context?.world_context_instruction) {
+      parts.push(safeStr(event_context.world_context_instruction));
+    }
+  }
+
+  if (event_context?.vector_memories?.length > 0) {
+    parts.push(`【往事记忆】${safeJoin(event_context.vector_memories, "；")}`);
+    if (event_context?.vector_memories_instruction) {
+      parts.push(safeStr(event_context.vector_memories_instruction));
+    }
+  }
+
+  if (event_context?.region_sensory?.length > 0 && event_context?.region_sensory_instruction) {
+    parts.push(`【强制感官】${safeJoin(event_context.region_sensory, "、")}\n${safeStr(event_context.region_sensory_instruction)}`);
+  }
+
   if (event_context?.time_instruction) {
     parts.push(`【时间与叙事约束】${safeStr(event_context.time_instruction)}`);
   }
@@ -433,13 +451,17 @@ exports.main = async (event, context) => {
   }
 
   try {
+    let systemContent = SYSTEM_PROMPT;
+    const eventCtx = payload.event_context || {};
+    if (eventCtx.director_intent) {
+      systemContent += "\n\n【导演当前指示】\n" + String(eventCtx.director_intent).trim() + "\n\n这是当前世界的宏观氛围约束，你的所有动作描写和台词风格必须严格符合此指示。";
+    }
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       { role: "user", content: buildUserPrompt(payload) }
     ];
     const url = useHunyuan ? HUNYUAN_API : DEEPSEEK_API;
     const model = useHunyuan ? "hunyuan-turbos-latest" : "deepseek-chat";
-    const eventCtx = payload.event_context || {};
     // narrative_max_tokens 是客户端对「叙事长度」的提示，整次回复还需包含 JSON 外壳，故设下限并留足余量避免截断
     const requested = eventCtx.narrative_max_tokens ?? 512;
     const maxTokens = Math.max(512, requested + 400);

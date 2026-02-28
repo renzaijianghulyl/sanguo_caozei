@@ -4,6 +4,8 @@ import { getDefaultNPCState, getNPCsForYear } from "./npcs";
 import { getAllRegions, getRegionName } from "./regions";
 import type { NPCRecord } from "./types";
 import { npcs184 } from "./npcs";
+import { adaptNpcsFromRaw } from "../DataAdapter";
+import type { NPC } from "../../types/sanguo";
 
 export { getEventsInRange, TIME_YEAR_MIN, TIME_YEAR_MAX } from "./timeline";
 export type { TimelineEvent } from "./timeline";
@@ -16,6 +18,14 @@ export {
   npcs184
 } from "./npcs";
 export type { RegionRecord, NPCRecord, TimelineEventRecord } from "./types";
+
+/**
+ * 核心引擎 2.0：按当前年份产出引擎标准 NPC 列表（id 为 string，含 is_alive/current_age）。
+ * 供 WorldStateManager 与需要生死/岁数逻辑的模块使用。
+ */
+export function getEngineNpcs(year: number): NPC[] {
+  return adaptNpcsFromRaw(getNPCsForYear(year), year);
+}
 
 /**
  * 使用三国结构化数据库初始化游戏：注册 NPC 到 contentRegistry（幻觉防御），

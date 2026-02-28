@@ -135,6 +135,8 @@ export interface PlayerState {
   hostile_factions?: string[];
   /** 立志阶段设定的愿望（destiny_goal），驱动主线软性引导与 NPC 提醒 */
   aspiration?: Aspiration;
+  /** 自定身份标签（与 origin 记忆一致，如「华佗弟子」），立志时写入，对话区玩家名下方永久展示 */
+  origin_label?: string;
   /** 与 WorldState 时间/地点严重冲突的指令累计次数，用于触发「嘲讽/无视」叙事 */
   logic_conflict_count?: number;
   /** 负面状态标签：wounded=重伤、poisoned=中毒；断粮由 resources.food<=0 判定；影响战斗/移动成功率与叙事 */
@@ -151,12 +153,16 @@ export interface WorldState {
     month: number;
     day: number;
   };
+  /** 核心引擎 2.0：从 184 年 1 月 1 日起累计天数，与 time 同步，供汉代纪年与步进 +7 使用 */
+  totalDays?: number;
   regionStatus?: Record<string, string>;
   regions?: Record<
     string,
     {
       stability?: number;
       unrest?: number;
+      /** 当前天气标签，由 WorldManager 按季节模板每轮刷新 */
+      weather?: string;
     }
   >;
 }
@@ -167,6 +173,10 @@ export interface NPCState {
   /** 出生/卒年，用于计算年龄：未满 15 岁仅为娃娃不可出仕，满 15 才可义结金兰/结婚 */
   birth_year?: number;
   death_year?: number;
+  /** 是否在世，由 WorldManager 根据 world.time.year 与 death_year 每轮同步 */
+  is_alive?: boolean;
+  /** 当前岁数（虚岁），由 WorldManager 根据 world.time.year 与 birth_year 每轮同步 */
+  current_age?: number;
   stance: string;
   trust: number;
   location?: string;
@@ -178,6 +188,10 @@ export interface NPCState {
   relations?: Record<string, number>;
   /** 与玩家的羁绊：亲密度、关键记忆、上次见面时间（有互动或关注时存在） */
   bond?: Bond;
+  /** 对当前所属势力的忠诚度 0～100，用于守将献城/死战叙事分支（增强方案） */
+  loyalty?: number;
+  /** 野心 0～100，影响自立/投靠倾向（增强方案） */
+  ambition?: number;
 }
 
 export interface EventLogEntry {

@@ -10,6 +10,13 @@ import {
   STATUS_ROW0_HEIGHT,
   STATUS_ROW1_HEIGHT
 } from "@ui/menu";
+import { getSensoryForWeather, computeTension } from "@core/DirectorModule";
+import {
+  drawWorldStatusBar,
+  pickSensoryPhraseForDisplay,
+  type WorldStatusBarData
+} from "@ui/WorldStatusBar";
+import { drawWorldNewsFeed, getWorldNewsFeedHeaderRect } from "@ui/WorldNewsFeed";
 
 /** “重新开始”按钮尺寸，与 gameApp 点击检测一致 */
 const RESTART_BTN_WIDTH = sizes.restartBtnWidth;
@@ -145,10 +152,26 @@ export interface RenderState {
   inputHintText?: string;
   /** 玩家角色名，用于将「你：」气泡显示为「角色名：」 */
   playerName?: string;
+  /** 自定身份标签（与 origin 记忆一致，如「华佗弟子」），在对话区玩家名下方永久展示 */
+  identityLabel?: string;
   /** 游戏终止原因（如意外殒命），非空时显示结束覆盖层与「重新开始」按钮 */
   gameOverReason?: string;
   /** 游戏结束时的玩家生平文案，结束界面中展示 */
   gameOverLifeSummary?: string;
+  /** 天下传闻：最新战报列表（tempData.recentWorldReports） */
+  recentWorldReports?: string[];
+  /** 天下传闻区域是否展开 */
+  newsFeedExpanded?: boolean;
+  /** 导演模块调试：本条裁决使用的上下文（开发环境下可点击「查看上下文」展示） */
+  lastAdjudicationContext?: {
+    director_intent?: string;
+    origin_memory?: string;
+    regional_sensory?: string[];
+  };
+  /** 是否显示「导演上下文」弹窗 */
+  directorContextModalVisible?: boolean;
+  /** 开发环境下是否显示「查看上下文」链接与「推进时间」按钮 */
+  debugDirectorUI?: boolean;
 }
 
 
@@ -156,10 +179,20 @@ export function renderScreen(state: RenderState): void {
   const { ctx, screenWidth, screenHeight } = state;
   drawBackground(ctx, screenWidth, screenHeight);
   drawStatusPanel(state);
+  if (state.layout.worldStatusBar) {
+    const barData = buildWorldStatusBarData(state);
+    if (barData) drawWorldStatusBar(ctx, state.layout.worldStatusBar, barData);
+  }
   if (state.statusMenuVisible) {
     drawStatusMenuPopup(ctx, state.layout);
   }
   drawDialogueArea(state);
+  if (state.layout.worldNewsFeed) {
+    drawWorldNewsFeed(ctx, state.layout.worldNewsFeed, {
+      reports: state.recentWorldReports ?? [],
+      expanded: state.newsFeedExpanded ?? false
+    });
+  }
   drawActionGuideSlot(state);
   // 输入提示已改为输入框占位暗文，不再在输入区上方绘制
   drawInputArea(state);
@@ -177,6 +210,12 @@ export function renderScreen(state: RenderState): void {
       state.gameOverReason,
       state.gameOverLifeSummary
     );
+  }
+  if (state.directorContextModalVisible && state.lastAdjudicationContext) {
+    drawDirectorContextModal(ctx, screenWidth, screenHeight, state.lastAdjudicationContext);
+  }
+  if (state.debugDirectorUI && state.layout.worldStatusBar) {
+    drawAdvanceTimeButton(ctx, state.layout.worldStatusBar);
   }
 }
 
@@ -320,6 +359,100 @@ function drawAttrsModal(ctx: CanvasCtx, screenWidth: number, screenHeight: numbe
   ctx.restore();
 }
 
+/** 导演上下文弹窗：展示 director_intent、Origin Memory、Regional Sensory（开发调试用） */
+function drawDirectorContextModal(
+  ctx: CanvasCtx,
+  screenWidth: number,
+  screenHeight: number,
+  context: { director_intent?: string; origin_memory?: string; regional_sensory?: string[] }
+): void {
+  const panelMargin = Math.max(24, Math.round(screenWidth * 0.08));
+  const panelWidth = screenWidth - panelMargin * 2;
+  const pad = 14;
+  const lineH = 16;
+  const parts: string[] = [];
+  if (context.director_intent) parts.push("【导演当前指示】\n" + context.director_intent);
+  if (context.origin_memory) parts.push("【Origin Memory】\n" + context.origin_memory);
+  if (context.regional_sensory?.length) parts.push("【Regional Sensory】\n" + context.regional_sensory.join("、"));
+  const body = parts.join("\n\n") || "（无）";
+  ctx.save();
+  ctx.font = "12px 'PingFang SC', sans-serif";
+  const maxW = panelWidth - pad * 2;
+  const wrapped: string[] = [];
+  body.split("\n").forEach((line) => {
+    wrapText(ctx, line, maxW).forEach((l) => wrapped.push(l));
+  });
+  const contentH = wrapped.length * lineH + pad * 2 + 28 + 24;
+  const panelHeight = Math.min(contentH, screenHeight - 80);
+  const panelX = panelMargin;
+  const panelY = (screenHeight - panelHeight) / 2;
+  const panel: UIRect = { x: panelX, y: panelY, width: panelWidth, height: panelHeight };
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillRect(0, 0, screenWidth, screenHeight);
+  drawRoundedRect(ctx, panel, colors.panel, colors.panelBorder, radius.panel);
+
+  ctx.fillStyle = colors.textPrimary;
+  ctx.font = "bold 14px 'PingFang SC', sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("导演上下文", panelX + pad, panelY + pad + 14);
+  let y = panelY + pad + 28;
+  ctx.font = "12px 'PingFang SC', sans-serif";
+  ctx.fillStyle = colors.textSecondary;
+  wrapped.forEach((line) => {
+    if (y < panelY + panelHeight - 32) {
+      ctx.fillText(line, panelX + pad, y + 12);
+      y += lineH;
+    }
+  });
+  ctx.fillStyle = colors.textMuted;
+  ctx.font = "11px 'PingFang SC', sans-serif";
+  ctx.fillText("点击任意处关闭", panelX + pad, panelY + panelHeight - 14);
+  ctx.restore();
+}
+
+/** 导演上下文弹窗：点击任意处关闭，返回整个遮罩矩形 */
+export function getDirectorContextModalCloseRect(screenWidth: number, screenHeight: number): UIRect {
+  return { x: 0, y: 0, width: screenWidth, height: screenHeight };
+}
+
+/** 「查看上下文」链接的点击区域（对话区底部居中一条） */
+export function getDirectorContextLinkRect(layout: UILayout): UIRect {
+  const area = layout.dialogueArea;
+  return {
+    x: area.x,
+    y: area.y + area.height - 22,
+    width: area.width,
+    height: 22
+  };
+}
+
+const ADVANCE_TIME_BTN_W = 72;
+const ADVANCE_TIME_BTN_H = 24;
+
+/** 世界状态栏右侧「推进时间（+7天）」按钮（仅 debug 显示） */
+function drawAdvanceTimeButton(ctx: CanvasCtx, barRect: UIRect): void {
+  const x = barRect.x + barRect.width - ADVANCE_TIME_BTN_W - 8;
+  const y = barRect.y + (barRect.height - ADVANCE_TIME_BTN_H) / 2;
+  const rect: UIRect = { x, y, width: ADVANCE_TIME_BTN_W, height: ADVANCE_TIME_BTN_H };
+  drawRoundedRect(ctx, rect, colors.accentChip, colors.accentChipBorder, radius.chip);
+  ctx.fillStyle = colors.accent;
+  ctx.font = "11px 'PingFang SC', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("推进时间(+7天)", rect.x + rect.width / 2, rect.y + rect.height / 2 + 4);
+}
+
+export function getAdvanceTimeButtonRect(layout: UILayout): UIRect {
+  const bar = layout.worldStatusBar;
+  if (!bar) return { x: 0, y: 0, width: 0, height: 0 };
+  return {
+    x: bar.x + bar.width - ADVANCE_TIME_BTN_W - 8,
+    y: bar.y + (bar.height - ADVANCE_TIME_BTN_H) / 2,
+    width: ADVANCE_TIME_BTN_W,
+    height: ADVANCE_TIME_BTN_H
+  };
+}
+
 function getSeason(month: number): string {
   if (month >= 1 && month <= 3) return "春";
   if (month >= 4 && month <= 6) return "夏";
@@ -407,6 +540,34 @@ function drawStatusPanel(state: RenderState) {
 /** 供 gameApp 点击检测：顶部状态栏内「重新开始」按钮的矩形（已收至菜单弹层，此处返回无效矩形避免误触） */
 export function getRestartButtonRect(layout: UILayout): UIRect {
   return { x: 0, y: 0, width: 0, height: 0 };
+}
+
+/** 从 RenderState 构建世界感知状态栏数据；无存档或无时间时返回 null */
+function buildWorldStatusBarData(state: RenderState): WorldStatusBarData | null {
+  const { currentSaveData, worldTime, recentWorldReports } = state;
+  const w = currentSaveData?.world?.time;
+  if (!w) return null;
+  const worldState = currentSaveData?.world ?? null;
+  const tension = worldState
+    ? computeTension(worldState, recentWorldReports?.length ?? 0)
+    : 0;
+  const regionKey = currentSaveData?.player?.location?.region ?? "";
+  const weather = currentSaveData?.world?.regions?.[regionKey]?.weather ?? "晴";
+  const regionName = (REGION_NAMES[regionKey] ?? regionKey) || "—";
+  const eraStr = worldTime ? getEraLabel(w.year) : getEraLabel(w.year);
+  const clockText = `${w.year}年 ${getSeason(w.month)} (${eraStr})`;
+  const phrases = getSensoryForWeather(weather);
+  const sensoryPhrase = pickSensoryPhraseForDisplay(
+    phrases,
+    currentSaveData?.world?.totalDays ?? w.year * 12 + w.month
+  );
+  return {
+    clockText,
+    regionName,
+    weatherLabel: weather,
+    sensoryPhrase: sensoryPhrase || "—",
+    tension
+  };
 }
 
 /** 供 gameApp 点击检测：属性说明 ? 图标的矩形 */
@@ -518,18 +679,20 @@ function isPlayerBubbleLine(line: string): boolean {
 }
 
 function drawDialogueArea(state: RenderState) {
-  const { ctx, layout, dialogueHistory, dialogueScrollOffset = 0, isAdjudicating = false, typingState, playerName } =
+  const { ctx, layout, dialogueHistory, dialogueScrollOffset = 0, isAdjudicating = false, typingState, playerName, identityLabel } =
     state;
   const area = layout.dialogueArea;
   const padding = 16;
   const bubbleGap = 10;
   const maxWidth = area.width - padding * 2;
+  const hasIdentityStrip = !!(playerName || identityLabel);
+  const identityStripHeight = hasIdentityStrip ? (identityLabel ? 34 : 20) : 0;
+  const areaContentHeight = area.height - padding * 2 - identityStripHeight;
   const displayHistory = dialogueHistory.map((t) => toDisplayLine(t, playerName));
   const bubbles =
     typingState && typingState.displayedLen > 0
       ? [...displayHistory, typingState.fullText.slice(0, typingState.displayedLen)]
       : displayHistory;
-  const areaContentHeight = area.height - padding * 2;
 
   const stableHeights = updateHeightCache(
     ctx,
@@ -579,6 +742,25 @@ function drawDialogueArea(state: RenderState) {
 
   drawRoundedRect(ctx, area, colors.dialogueBg, colors.dialogueBorder, radius.panel);
 
+  if (hasIdentityStrip) {
+    ctx.save();
+    ctx.font = "13px 'PingFang SC', sans-serif";
+    ctx.fillStyle = colors.text;
+    ctx.textAlign = "left";
+    const left = area.x + padding;
+    let stripY = area.y + padding + 14;
+    if (playerName) {
+      ctx.fillText(playerName, left, stripY);
+      stripY += 18;
+    }
+    if (identityLabel) {
+      ctx.font = "11px 'PingFang SC', sans-serif";
+      ctx.fillStyle = colors.textSecondary;
+      ctx.fillText(identityLabel, left, stripY);
+    }
+    ctx.restore();
+  }
+
   const historyStartYs = getBubbleStartY(stableHeights, bubbleGap);
   const historyTotalHeight =
     stableHeights.length > 0
@@ -627,7 +809,7 @@ function drawDialogueArea(state: RenderState) {
   ctx.beginPath();
   ctx.rect(area.x, area.y, area.width, area.height);
   ctx.clip();
-  ctx.translate(area.x + padding, area.y + padding - visibleSrcY);
+  ctx.translate(area.x + padding, area.y + padding + identityStripHeight - visibleSrcY);
 
   if (dialogueOffscreenValid && dialogueOffscreen && historyTotalHeight > 0) {
     const srcH = Math.min(areaContentHeight, historyTotalHeight - visibleSrcY);
@@ -699,27 +881,21 @@ function drawDialogueArea(state: RenderState) {
   if (isAdjudicating) {
     drawLoadingIndicator(ctx, area);
   }
+
+  if (state.debugDirectorUI && state.lastAdjudicationContext && state.dialogueHistory.some((l) => !isPlayerBubbleLine(l))) {
+    ctx.fillStyle = colors.accent;
+    ctx.font = "11px 'PingFang SC', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("查看上下文", area.x + area.width / 2, area.y + area.height - 8);
+  }
 }
 
-/** 对话区底部：动态转圈 + 带点点循环的等待文案 */
+/** 对话区底部：推演中仅显示带点点循环的等待文案（无旋转 icon） */
 const ADJUDICATING_LABEL_BASE = "局势推演中";
 
 function drawLoadingIndicator(ctx: CanvasCtx, area: UIRect): void {
   const centerX = area.x + area.width / 2;
-  const centerY = area.y + area.height - 28;
-  const radius = 12;
-  const t = Date.now() / 1000;
-  const startAngle = t * Math.PI * 2;
-  const endAngle = startAngle + Math.PI * 1.5;
-
-  ctx.save();
-  ctx.strokeStyle = colors.accent;
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.arc(centerX, centerY - 16, radius, startAngle, endAngle);
-  ctx.stroke();
-  ctx.restore();
+  const centerY = area.y + area.height - 20;
 
   const dotCycle = Math.floor((Date.now() / 400) % 4);
   const dots = dotCycle === 0 ? "" : ".".repeat(dotCycle);
@@ -730,7 +906,7 @@ function drawLoadingIndicator(ctx: CanvasCtx, area: UIRect): void {
   ctx.fillStyle = colors.textMuted;
   ctx.font = "12px 'PingFang SC', sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(label, centerX, centerY + 6);
+  ctx.fillText(label, centerX, centerY);
   ctx.globalAlpha = 1;
 }
 
@@ -896,7 +1072,7 @@ function drawInputArea({
   const placeholder = currentInput
     ? ""
     : isAdjudicating
-      ? ADJUDICATING_LABEL
+      ? ADJUDICATING_LABEL_BASE
       : keyboardActive
         ? "输入中..."
         : INPUT_PLACEHOLDER;
